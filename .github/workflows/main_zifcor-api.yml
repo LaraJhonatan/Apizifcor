@@ -22,9 +22,9 @@ jobs:
         with:
           node-version: '22.x'
 
-      - name: npm install and build
+    - name: npm install and build
         run: |
-          npm ci
+          npm install --include=dev
           npx nest build
 
       - name: Upload artifact for deployment job
