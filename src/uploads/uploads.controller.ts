@@ -1,0 +1,54 @@
+import {
+  Controller, Post, Delete, Param,
+  UploadedFile, UseInterceptors, Query,
+  BadRequestException, HttpCode, HttpStatus,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
+import { ApiTags, ApiOperation, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import { UploadsService } from './uploads.service';
+
+const ALLOWED_MIMETYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const MAX_SIZE = 5 * 1024 * 1024;
+
+@ApiTags('Uploads')
+@Controller('uploads')
+export class UploadsController {
+  constructor(private readonly svc: UploadsService) {}
+
+  @Post('image')
+  @ApiOperation({ summary: 'Subir imagen a Cloudinary' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+        folder: { type: 'string', example: 'productos' },
+      },
+    },
+  })
+  @UseInterceptors(FileInterceptor('file', {
+    storage: memoryStorage(),
+    limits: { fileSize: MAX_SIZE },
+    fileFilter: (_req, file, cb) => {
+      if (!ALLOWED_MIMETYPES.includes(file.mimetype)) {
+        return cb(new BadRequestException('Solo se aceptan imágenes JPG, PNG, WEBP o GIF'), false);
+      }
+      cb(null, true);
+    },
+  }))
+  upload(
+    @UploadedFile() file: Express.Multer.File,
+    @Query('folder') folder?: string,
+  ) {
+    return this.svc.uploadImage(file, folder ?? 'general');
+  }
+
+  @Delete(':publicId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Eliminar imagen de Cloudinary por publicId' })
+  delete(@Param('publicId') publicId: string) {
+    return this.svc.deleteImage(publicId);
+  }
+}
