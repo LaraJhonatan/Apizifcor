@@ -29,18 +29,16 @@ export class DianService {
   private readonly logger = new Logger(DianService.name);
   private ciuuCache: Record<string, string> = {};
 
-  // ── Lista de NITs permitidos para registro aunque no estén en la fuente externa ──
-  private readonly NITS_PERMITIDOS: Array<Partial<DatosEmpresa> & { nit: string }> = [
-    {
-      nit: '902067173',
-      dv: '',
-      razonSocial: 'Empresa por Registrar',
-      estado: 'PENDIENTE',
-      actividadEconomicaPrincipal: null,
-      tipoContribuyente: 'Persona Jurídica',
-    },
-    // Agrega más NITs permitidos aquí con el mismo formato
-  ];
+private readonly NITS_PERMITIDOS: Array<Partial<DatosEmpresa> & { nit: string }> = [
+  {
+    nit: '902067173',
+    dv: '6',
+    razonSocial: 'ZIFCOR SAS',
+    estado: 'ACTIVO',
+    actividadEconomicaPrincipal: '4791',
+    tipoContribuyente: 'Persona Jurídica',
+  },
+];
 
   // ── 1. Consultar empresa por NIT en datos.gov.co ──────────────────────────
   async consultarPorNit(nit: string): Promise<DatosEmpresa> {
