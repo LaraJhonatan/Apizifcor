@@ -29,6 +29,19 @@ export class DianService {
   private readonly logger = new Logger(DianService.name);
   private ciuuCache: Record<string, string> = {};
 
+  // ── Lista de NITs permitidos para registro aunque no estén en la fuente externa ──
+  private readonly NITS_PERMITIDOS: Array<Partial<DatosEmpresa> & { nit: string }> = [
+    {
+      nit: '902067173',
+      dv: '',
+      razonSocial: 'Empresa por Registrar',
+      estado: 'PENDIENTE',
+      actividadEconomicaPrincipal: null,
+      tipoContribuyente: 'Persona Jurídica',
+    },
+    // Agrega más NITs permitidos aquí con el mismo formato
+  ];
+
   // ── 1. Consultar empresa por NIT en datos.gov.co ──────────────────────────
   async consultarPorNit(nit: string): Promise<DatosEmpresa> {
     try {
@@ -69,7 +82,37 @@ export class DianService {
         tipoSociedad:                 emp.tipo_sociedad ?? null,
       };
     } catch (err) {
-      if (err instanceof NotFoundException) throw err;
+      if (err instanceof NotFoundException) {
+        // Verificar si el NIT está en la lista de permitidos
+        const permitido = this.NITS_PERMITIDOS.find((e) => e.nit === nit);
+        if (permitido) {
+          this.logger.log(
+            `NIT ${nit} no encontrado en la fuente externa, pero está en la lista de NITs permitidos.`,
+          );
+          return {
+            nit,
+            dv: '',
+            razonSocial: 'Empresa por Registrar',
+            estado: 'PENDIENTE',
+            actividadEconomicaPrincipal: null,
+            actividadEconomicaSecundaria: null,
+            tipoContribuyente: 'Persona Jurídica',
+            direccion: null,
+            telefono: null,
+            matricula: null,
+            camara: null,
+            representanteLegal: null,
+            fechaMatricula: null,
+            fechaRenovacion: null,
+            ultimoAnoRenovado: null,
+            tipoSociedad: null,
+            ...permitido, // Sobreescribe con los campos definidos en el arreglo
+          };
+        }
+        // NIT no encontrado y no está en la lista permitida
+        throw err;
+      }
+
       const errorMessage = err instanceof Error ? err.message : String(err);
       this.logger.warn('datos.gov.co no disponible, usando mock: ' + errorMessage);
       return this.mockEmpresa(nit);
