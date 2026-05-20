@@ -18,7 +18,7 @@ export class UploadsService {
     return new Promise((resolve, reject) => {
       cloudinary.uploader.upload_stream(
         {
-          folder: `ZIFCOR/${folder}`,
+          folder: `zifux/${folder}`,
           resource_type: 'image',
           transformation: [{ quality: 'auto', fetch_format: 'auto' }],
         },
