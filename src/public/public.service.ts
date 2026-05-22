@@ -77,7 +77,57 @@ export class PublicService {
 
     return { data, total, page, limit, pages: Math.ceil(total / limit) };
   }
+async searchProductos(params: any) {
+  const { page = 1, limit = 16, q, estado = 'published' } = params;
 
+  const qb = this.productRepo.createQueryBuilder('p')
+    .leftJoinAndSelect('p.category', 'category')
+    .leftJoinAndSelect('p.imagenes', 'imagenes')
+    .leftJoinAndSelect('p.empresa', 'empresa')
+    .leftJoinAndSelect('empresa.profile', 'profile')
+    .leftJoin('product_attribute_values', 'attrVal', 'attrVal.productId = p.id')
+    .where('p.estado = :estado', { estado })
+    .andWhere('p.eliminado = :eliminado', { eliminado: false });
+
+  if (q) {
+    const words = q.trim().split(/\s+/).filter((w: string) => w.length >= 2)
+    const stems = words.map((w: string) =>
+      w.slice(0, Math.max(3, Math.floor(w.length * 0.75)))
+    )
+    const allTerms: string[] = [...new Set<string>([
+      ...words,
+      ...stems,
+      ...words.map((w: string) => w.toUpperCase()),
+      ...words.map((w: string) => w.toLowerCase()),
+    ])]
+
+    const conditions = allTerms
+      .map((_: string, i: number) =>
+        `(p.nombre LIKE :t${i}
+          OR p.descripcion LIKE :t${i}
+          OR p.marca LIKE :t${i}
+          OR p.sku LIKE :t${i}
+          OR attrVal.valor LIKE :t${i})`
+      )
+      .join(' OR ')
+
+    const termParams: Record<string, string> = {}
+    allTerms.forEach((t: string, i: number) => {
+      termParams[`t${i}`] = `%${t}%`
+    })
+
+    qb.andWhere(`(${conditions})`, termParams)
+  }
+
+  const [data, total] = await qb
+    .distinct(true)
+    .skip((+page - 1) * +limit)
+    .take(+limit)
+    .orderBy('p.createdAt', 'DESC')
+    .getManyAndCount();
+
+  return { data, total, page: +page, limit: +limit, pages: Math.ceil(total / +limit) };
+}
   async getProducto(id: string) {
     const product = await this.productRepo.findOne({
       where: { id, eliminado: false, estado: 'published' as any },

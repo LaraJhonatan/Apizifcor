@@ -410,58 +410,43 @@ try {
   // LOGIN
   // ─────────────────────────────────────────────────────────────────────────────
   async login(dto: LoginDto) {
-    const identificador = dto.identificador.trim();
+  const identificador = dto.identificador.trim();
 
-    let empresa: EmpresaEntity | null = null;
+  let empresa: EmpresaEntity | null = null;
 
-    if (/^\d+$/.test(identificador)) {
-      empresa = await this.empresaRepo.findOne({ where: { nit: identificador } });
-    } else {
-      empresa = await this.empresaRepo.findOne({
-        where: { correo: identificador.toLowerCase() },
-      });
-    }
-
-    if (!empresa) {
-      throw new UnauthorizedException('NIT/correo o contraseña incorrectos.');
-    }
-
-    const cuenta = await this.cuentaRepo.findOne({
-      where: { empresa: { id: empresa.id }, activo: true },
-      relations: ['empresa'],
+  if (/^\d+$/.test(identificador)) {
+    empresa = await this.empresaRepo.findOne({ where: { nit: identificador } });
+  } else {
+    empresa = await this.empresaRepo.findOne({
+      where: { correo: identificador.toLowerCase() },
     });
-
-    if (!cuenta) {
-      throw new UnauthorizedException('NIT/correo o contraseña incorrectos.');
-    }
-
-    const passwordValida = await bcrypt.compare(dto.password, cuenta.passwordHash);
-    if (!passwordValida) {
-      throw new UnauthorizedException('NIT/correo o contraseña incorrectos.');
-    }
-
-    const payload = {
-      sub: cuenta.id,
-      nit: empresa.nit,
-      razonSocial: empresa.razonSocial,
-      correo: empresa.correo,
-    };
-
-    const accessToken = this.jwtService.sign(payload);
-
-    return {
-      ok: true,
-      accessToken,
-      empresa: {
-        nit: empresa.nit,
-        dv: empresa.dv,
-        razonSocial: empresa.razonSocial,
-        correo: this.enmascararEmail(empresa.correo),
-        estado: empresa.estado,
-      },
-    };
   }
 
+  console.log('1. empresa:', empresa?.nit, empresa?.id) // ← log
+
+  if (!empresa) {
+    throw new UnauthorizedException('NIT/correo o contraseña incorrectos.');
+  }
+
+  const cuenta = await this.cuentaRepo.findOne({
+    where: { empresa: { id: empresa.id }, activo: true },
+    relations: ['empresa'],
+  });
+
+  console.log('2. cuenta:', cuenta?.id, 'activo:', cuenta?.activo) // ← log
+
+  if (!cuenta) {
+    throw new UnauthorizedException('NIT/correo o contraseña incorrectos.');
+  }
+
+  const passwordValida = await bcrypt.compare(dto.password, cuenta.passwordHash);
+  console.log('3. passwordValida:', passwordValida) // ← log
+
+  if (!passwordValida) {
+    throw new UnauthorizedException('NIT/correo o contraseña incorrectos.');
+  }
+  // ...
+}
   // ─────────────────────────────────────────────────────────────────────────────
   // HELPERS PRIVADOS
   // ─────────────────────────────────────────────────────────────────────────────
