@@ -409,20 +409,22 @@ try {
   // ─────────────────────────────────────────────────────────────────────────────
   // LOGIN
   // ─────────────────────────────────────────────────────────────────────────────
-  async login(dto: LoginDto) {
+async login(dto: LoginDto) {
   const identificador = dto.identificador.trim();
 
   let empresa: EmpresaEntity | null = null;
 
   if (/^\d+$/.test(identificador)) {
-    empresa = await this.empresaRepo.findOne({ where: { nit: identificador } });
+    empresa = await this.empresaRepo.findOne({
+      where: { nit: identificador },
+      relations: ['profile'],  // ← para traer logoUrl
+    });
   } else {
     empresa = await this.empresaRepo.findOne({
       where: { correo: identificador.toLowerCase() },
+      relations: ['profile'],  // ← para traer logoUrl
     });
   }
-
-  console.log('1. empresa:', empresa?.nit, empresa?.id) // ← log
 
   if (!empresa) {
     throw new UnauthorizedException('NIT/correo o contraseña incorrectos.');
@@ -433,19 +435,38 @@ try {
     relations: ['empresa'],
   });
 
-  console.log('2. cuenta:', cuenta?.id, 'activo:', cuenta?.activo) // ← log
-
   if (!cuenta) {
     throw new UnauthorizedException('NIT/correo o contraseña incorrectos.');
   }
 
   const passwordValida = await bcrypt.compare(dto.password, cuenta.passwordHash);
-  console.log('3. passwordValida:', passwordValida) // ← log
 
   if (!passwordValida) {
     throw new UnauthorizedException('NIT/correo o contraseña incorrectos.');
   }
-  // ...
+
+  const payload = {
+    sub: cuenta.id,
+    empresaId: empresa.id,      
+    nit: empresa.nit,
+    razonSocial: empresa.razonSocial,
+    correo: empresa.correo,
+  }
+
+  const accessToken = this.jwtService.sign(payload)
+
+  return {
+    ok: true,
+    accessToken,
+    empresa: {
+      nit: empresa.nit,
+      dv: empresa.dv,
+      razonSocial: empresa.razonSocial,
+      correo: this.enmascararEmail(empresa.correo),
+      estado: empresa.estado,
+      logoUrl: empresa.profile?.logoUrl || null, 
+    },
+  }
 }
   // ─────────────────────────────────────────────────────────────────────────────
   // HELPERS PRIVADOS
