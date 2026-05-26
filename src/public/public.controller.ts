@@ -29,6 +29,7 @@ export class PublicController {
   @ApiOperation({ summary: 'Productos públicos de empresa' })
   getProductosEmpresa(@Param('id') id: string, @Query() params: any) {
     return this.svc.getProductosEmpresa(id, params);
+    //hola
   }
 @Get('productos/search')
 @ApiOperation({ summary: 'Búsqueda global de productos' })
