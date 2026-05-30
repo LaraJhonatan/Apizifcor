@@ -26,7 +26,6 @@ export class ProductsController {
   @Get()
   @ApiOperation({ summary: 'Listar productos de mi empresa' })
   findAll(@Req() req, @Query() filters: FilterProductsDto) {
-      console.log('empresaId del token:', req.user?.empresaId)
     return this.svc.findAll({ ...filters, empresaId: req.user.empresaId })
   }
 
