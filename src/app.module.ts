@@ -29,6 +29,7 @@ import { Order } from './orders/entities/order.entity';
 import { Review } from './reviews/entities/review.entity';
 import { Quote } from './quotes/entities/quote.entity';
 import { Contact } from './contact/entities/contact.entity';
+import { SolicitudMaquinaria } from './contact/entities/solicitud-maquinaria.entity';
 
 import { Category } from './categories/entities/category.entity';
 import { CategoryAttributeDefinition } from './categories/entities/category-attribute-definition.entity';
@@ -63,6 +64,7 @@ import { ProductStatusHistory } from './products/entities/product-status-history
         Review,
         Quote,
         Contact,
+        SolicitudMaquinaria,
         Category,
         CategoryAttributeDefinition,
         CategoryAttributeOption,
@@ -75,11 +77,11 @@ import { ProductStatusHistory } from './products/entities/product-status-history
       ],
       synchronize: true,
       logging: true,
- options: {
-  encrypt: true,              // 👈 era false, cámbialo a true
-  trustServerCertificate: false,  // 👈 era true, cámbialo a false
-  enableArithAbort: true,
-},
+      options: {
+        encrypt: true,
+        trustServerCertificate: false,
+        enableArithAbort: true,
+      },
     }),
     AuthModule,
     UsersModule,

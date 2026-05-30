@@ -1,34 +1,31 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Post, Get, Body } from '@nestjs/common';
 import { ContactService } from './contact.service';
 import { CreateContactDto } from './dto/create-contact.dto';
-import { UpdateContactDto } from './dto/update-contact.dto';
+import { CreateSolicitudMaquinariaDto } from './dto/create-solicitud-maquinaria.dto';
 
-@Controller('contact')
+@Controller('public')
 export class ContactController {
   constructor(private readonly contactService: ContactService) {}
 
-  @Post()
-  create(@Body() createContactDto: CreateContactDto) {
-    return this.contactService.create(createContactDto);
+  // Formulario de contacto general
+  @Post('contacto')
+  createContact(@Body() dto: CreateContactDto) {
+    return this.contactService.createContact(dto);
   }
 
-  @Get()
-  findAll() {
-    return this.contactService.findAll();
+  @Get('contacto')
+  findAllContacts() {
+    return this.contactService.findAllContacts();
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.contactService.findOne(+id);
+  // Formulario de solicitud de maquinaria
+  @Post('maquinaria')
+  createSolicitud(@Body() dto: CreateSolicitudMaquinariaDto) {
+    return this.contactService.createSolicitudMaquinaria(dto);
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateContactDto: UpdateContactDto) {
-    return this.contactService.update(+id, updateContactDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.contactService.remove(+id);
+  @Get('maquinaria')
+  findAllSolicitudes() {
+    return this.contactService.findAllSolicitudes();
   }
 }

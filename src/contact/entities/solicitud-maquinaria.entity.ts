@@ -1,24 +1,30 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
 
-@Entity('contactos')
-export class Contact {
+@Entity('solicitudes_maquinaria')
+export class SolicitudMaquinaria {
   @PrimaryGeneratedColumn()
   id: number;
 
   @Column()
-  firstName: string;
+  empresa: string;
 
   @Column()
-  lastName: string;
+  nit: string;
 
   @Column()
-  email: string;
+  contacto: string;
 
   @Column()
-  phone: string;
+  telefono: string;
+
+  @Column()
+  correo: string;
 
   @Column('text')
-  message: string;
+  maquinaria: string;
+
+  @Column({ type: 'int' })
+  unidades: number;
 
   @Column({ default: 'pendiente' })
   estado: string;

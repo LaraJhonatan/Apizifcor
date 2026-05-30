@@ -1,26 +1,35 @@
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Contact } from './entities/contact.entity';
+import { SolicitudMaquinaria } from './entities/solicitud-maquinaria.entity';
 import { CreateContactDto } from './dto/create-contact.dto';
-import { UpdateContactDto } from './dto/update-contact.dto';
+import { CreateSolicitudMaquinariaDto } from './dto/create-solicitud-maquinaria.dto';
 
 @Injectable()
 export class ContactService {
-  create(createContactDto: CreateContactDto) {
-    return 'This action adds a new contact';
+  constructor(
+    @InjectRepository(Contact)
+    private readonly contactRepository: Repository<Contact>,
+    @InjectRepository(SolicitudMaquinaria)
+    private readonly solicitudRepository: Repository<SolicitudMaquinaria>,
+  ) {}
+
+  async createContact(dto: CreateContactDto): Promise<Contact> {
+    const contact = this.contactRepository.create(dto);
+    return this.contactRepository.save(contact);
   }
 
-  findAll() {
-    return `This action returns all contact`;
+  async findAllContacts(): Promise<Contact[]> {
+    return this.contactRepository.find({ order: { createdAt: 'DESC' } });
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} contact`;
+  async createSolicitudMaquinaria(dto: CreateSolicitudMaquinariaDto): Promise<SolicitudMaquinaria> {
+    const solicitud = this.solicitudRepository.create(dto);
+    return this.solicitudRepository.save(solicitud);
   }
 
-  update(id: number, updateContactDto: UpdateContactDto) {
-    return `This action updates a #${id} contact`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} contact`;
+  async findAllSolicitudes(): Promise<SolicitudMaquinaria[]> {
+    return this.solicitudRepository.find({ order: { createdAt: 'DESC' } });
   }
 }
