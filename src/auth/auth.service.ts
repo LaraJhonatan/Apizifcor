@@ -38,7 +38,7 @@ import {
   validarQrDian,
   RECHAZAR_SIN_QR,
 } from './helpers/rut.helpers';
-
+import { slugify, slugifyUnique } from '../common/utils/slugify';
 const OTP_TTL_MINUTES = 10;
 const BCRYPT_ROUNDS = 12;
 
@@ -61,6 +61,15 @@ private readonly profileRepo: Repository<EmpresaProfileEntity>,
     private readonly mailService: MailService,
     private readonly jwtService: JwtService,
   ) {}
+private async generarSlugEmpresa(nombre: string, excludeId?: string): Promise<string> {
+  return slugifyUnique(nombre, async (slug) => {
+    const qb = this.profileRepo.createQueryBuilder('p')
+      .where('p.slug = :slug', { slug });
+    if (excludeId) qb.andWhere('p.id != :id', { id: excludeId });
+    const found = await qb.getOne();
+    return !!found;
+  });
+}
 
   // ─────────────────────────────────────────────────────────────────────────────
   // PASO 1 — Consultar empresa por NIT
@@ -505,10 +514,14 @@ async updateEmpresaPerfil(nit: string, dto: UpdateEmpresaProfileDto) {
   });
   if (!empresa) throw new NotFoundException('Empresa no encontrada');
 
+  // Genera slug a partir de nombreComercial (o razonSocial como fallback)
+  const nombreParaSlug = dto.nombreComercial || empresa.profile?.nombreComercial || empresa.razonSocial;
+  const slug = await this.generarSlugEmpresa(nombreParaSlug, empresa.profile?.id);
+
   if (empresa.profile) {
-    await this.profileRepo.update(empresa.profile.id, dto);
+    await this.profileRepo.update(empresa.profile.id, { ...dto, slug });
   } else {
-    const profile = this.profileRepo.create({ empresaId: empresa.id, ...dto });
+    const profile = this.profileRepo.create({ empresaId: empresa.id, ...dto, slug });
     await this.profileRepo.save(profile);
   }
 

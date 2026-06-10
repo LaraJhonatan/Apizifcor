@@ -10,6 +10,7 @@ import { ProductVariant } from './product-variant.entity';
 import { ProductImage } from './product-image.entity';
 import { ProductStatusHistory } from './product-status-history.entity';
 import { ProductStatus } from '../../common/enums/product-status.enum';
+import { ProductSector } from '../../sectores/entities/product-sector.entity';
 
 @Entity('products')
 export class Product {
@@ -54,7 +55,8 @@ export class Product {
 
   @Column({ nullable: true, length: 20 })
   moneda: string;
-
+@Column({ nullable: true, length: 400 })
+slug: string;
   @Column({ type: 'varchar', length: 20, default: ProductStatus.DRAFT })
   estado: ProductStatus;
 
@@ -84,4 +86,7 @@ export class Product {
 
   @OneToMany(() => ProductStatusHistory, h => h.product)
   historialEstados: ProductStatusHistory[];
+
+  @OneToMany(() => ProductSector, ps => ps.product, { cascade: true })
+  sectores: ProductSector[];
 }

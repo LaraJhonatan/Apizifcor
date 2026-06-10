@@ -22,6 +22,8 @@ import { CuentaEmpresaEntity } from './auth/entities/cuenta-empresa.entity';
 import { OtpEntity } from './auth/entities/otp.entity';
 import { EmpresaProfileEntity } from './auth/entities/empresa-profile.entity';
 import { SectorEntity } from './sectores/entities/sector.entity';
+import { ProductSector } from './sectores/entities/product-sector.entity';
+import { EmpresaSector } from './sectores/entities/empresa-sector.entity';
 
 import { User } from './users/entities/user.entity';
 import { Cart } from './cart/entities/cart.entity';
@@ -58,6 +60,8 @@ import { ProductStatusHistory } from './products/entities/product-status-history
         OtpEntity,
         EmpresaProfileEntity,
         SectorEntity,
+        ProductSector,
+        EmpresaSector,
         User,
         Cart,
         Order,

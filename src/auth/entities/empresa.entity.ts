@@ -1,18 +1,13 @@
 import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  OneToOne,
-  OneToMany,
-  ManyToOne,
-  JoinColumn,
+  Entity, PrimaryGeneratedColumn, Column,
+  CreateDateColumn, UpdateDateColumn,
+  OneToOne, OneToMany, ManyToOne, JoinColumn,
 } from 'typeorm';
 import { CuentaEmpresaEntity } from './cuenta-empresa.entity';
 import { EmpresaProfileEntity } from './empresa-profile.entity';
 import { Product } from '../../products/entities/product.entity';
 import { SectorEntity } from '../../sectores/entities/sector.entity';
+import { EmpresaSector } from '../../sectores/entities/empresa-sector.entity';
 
 @Entity('empresas')
 export class EmpresaEntity {
@@ -58,12 +53,13 @@ export class EmpresaEntity {
   @Column({ default: false })
   rutValidado: boolean;
 
+  // Mantenemos sectorId original — no se toca hasta migrar el frontend
   @Column({ nullable: true })
   sectorId: string;
 
-@ManyToOne(() => SectorEntity, { nullable: true, onDelete: 'SET NULL' })
-@JoinColumn({ name: 'sectorId' })
-sector: SectorEntity;
+  @ManyToOne(() => SectorEntity, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'sectorId' })
+  sector: SectorEntity;
 
   @OneToOne(() => CuentaEmpresaEntity, cuenta => cuenta.empresa)
   cuenta: CuentaEmpresaEntity;
@@ -73,6 +69,10 @@ sector: SectorEntity;
 
   @OneToMany(() => Product, p => p.empresa)
   products: Product[];
+
+  // Nueva relación many-to-many vía tabla pivote
+  @OneToMany(() => EmpresaSector, es => es.empresa, { cascade: true })
+  sectores: EmpresaSector[];
 
   @CreateDateColumn()
   createdAt: Date;

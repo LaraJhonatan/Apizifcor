@@ -12,7 +12,8 @@ export class EmpresaProfileEntity {
   @OneToOne(() => EmpresaEntity, e => e.profile, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'empresaId' })
   empresa: EmpresaEntity;
-
+@Column({ nullable: true, length: 200 })
+slug: string;
   @Column()
   empresaId: string;
 

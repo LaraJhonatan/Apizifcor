@@ -41,4 +41,22 @@ searchProductos(@Query() params: any) {
   getProducto(@Param('id') id: string) {
     return this.svc.getProducto(id);
   }
+
+
+  @Get('empresas/slug/:slug')
+@ApiOperation({ summary: 'Perfil público de empresa por slug' })
+getEmpresaPorSlug(@Param('slug') slug: string) {
+  return this.svc.getEmpresaPorSlug(slug);
+}
+
+@Get('productos/slug/:slug')
+@ApiOperation({ summary: 'Detalle público de producto por slug' })
+getProductoPorSlug(@Param('slug') slug: string) {
+  return this.svc.getProductoPorSlug(slug);
+}
+
+@Get('empresas/slug/:slug/productos')
+getProductosEmpresaPorSlug(@Param('slug') slug: string, @Query() query) {
+  return this.svc.getProductosEmpresaPorSlug(slug, query);
+}
 }
