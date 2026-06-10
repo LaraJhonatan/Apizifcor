@@ -16,6 +16,7 @@ import { ContactModule } from './contact/contact.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { SectoresModule } from './sectores/sectores.module';
 import { PublicModule } from './public/public.module';
+import { SitemapModule } from './sitemap/sitemap.module';
 
 import { EmpresaEntity } from './auth/entities/empresa.entity';
 import { CuentaEmpresaEntity } from './auth/entities/cuenta-empresa.entity';
@@ -99,6 +100,7 @@ import { ProductStatusHistory } from './products/entities/product-status-history
     ContactModule,
     SectoresModule,
     PublicModule,
+    SitemapModule,
   ],
   controllers: [AppController],
   providers: [AppService],
