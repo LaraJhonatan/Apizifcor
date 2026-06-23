@@ -27,6 +27,7 @@ import { VerificarCodigoDto } from './dto/verificar-codigo.dto';
 import { CrearCuentaEmpresaDto } from './dto/crear-cuenta-empresa.dto';
 import { LoginDto } from './dto/login.dto';
 import { EmpresaProfileEntity } from './entities/empresa-profile.entity';
+import { UsuarioEntity } from '../users/entities/user.entity';
 import {
   validarArchivoPdf,
   extraerTextoPdf,
@@ -39,6 +40,7 @@ import {
   RECHAZAR_SIN_QR,
 } from './helpers/rut.helpers';
 import { slugify, slugifyUnique } from '../common/utils/slugify';
+
 const OTP_TTL_MINUTES = 10;
 const BCRYPT_ROUNDS = 12;
 
@@ -49,27 +51,33 @@ export class AuthService {
   constructor(
     @InjectRepository(EmpresaEntity)
     private readonly empresaRepo: Repository<EmpresaEntity>,
-@InjectRepository(EmpresaProfileEntity)
-private readonly profileRepo: Repository<EmpresaProfileEntity>,
+
+    @InjectRepository(EmpresaProfileEntity)
+    private readonly profileRepo: Repository<EmpresaProfileEntity>,
+
     @InjectRepository(CuentaEmpresaEntity)
     private readonly cuentaRepo: Repository<CuentaEmpresaEntity>,
 
     @InjectRepository(OtpEntity)
     private readonly otpRepo: Repository<OtpEntity>,
 
+    @InjectRepository(UsuarioEntity)
+    private readonly usuarioRepo: Repository<UsuarioEntity>,
+
     private readonly dianService: DianService,
     private readonly mailService: MailService,
     private readonly jwtService: JwtService,
   ) {}
-private async generarSlugEmpresa(nombre: string, excludeId?: string): Promise<string> {
-  return slugifyUnique(nombre, async (slug) => {
-    const qb = this.profileRepo.createQueryBuilder('p')
-      .where('p.slug = :slug', { slug });
-    if (excludeId) qb.andWhere('p.id != :id', { id: excludeId });
-    const found = await qb.getOne();
-    return !!found;
-  });
-}
+
+  private async generarSlugEmpresa(nombre: string, excludeId?: string): Promise<string> {
+    return slugifyUnique(nombre, async (slug) => {
+      const qb = this.profileRepo.createQueryBuilder('p')
+        .where('p.slug = :slug', { slug });
+      if (excludeId) qb.andWhere('p.id != :id', { id: excludeId });
+      const found = await qb.getOne();
+      return !!found;
+    });
+  }
 
   // ─────────────────────────────────────────────────────────────────────────────
   // PASO 1 — Consultar empresa por NIT
@@ -135,20 +143,18 @@ private async generarSlugEmpresa(nombre: string, excludeId?: string): Promise<st
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // PASO 2 — Validar RUT (sin Firebase por ahora)
+  // PASO 2 — Validar RUT
   // ─────────────────────────────────────────────────────────────────────────────
   async validarRut(file: Express.Multer.File, dto: ValidarRutDto) {
     const nit = dto.nit.trim().replace(/\D/g, '');
 
-    // ── 1. Validación básica del archivo ──────────────────────────────────────
-try {
-  validarArchivoPdf(file);
-} catch (e: unknown) {
-  const mensaje = e instanceof Error ? e.message : 'Archivo PDF inválido';
-  throw new BadRequestException(mensaje);
-}
+    try {
+      validarArchivoPdf(file);
+    } catch (e: unknown) {
+      const mensaje = e instanceof Error ? e.message : 'Archivo PDF inválido';
+      throw new BadRequestException(mensaje);
+    }
 
-    // ── 2. Verificar que la empresa exista en BD ──────────────────────────────
     const empresa = await this.empresaRepo.findOne({ where: { nit } });
     if (!empresa) {
       throw new NotFoundException(
@@ -156,18 +162,16 @@ try {
       );
     }
 
-    // ── 3. Extraer texto del PDF ──────────────────────────────────────────────
     let textoPdf: string;
     try {
-  textoPdf = await extraerTextoPdf(file.buffer);
-} catch (e: unknown) {
-  this.logger.error('Error al procesar PDF', e);
-  throw new InternalServerErrorException(
-    'No se pudo procesar el contenido del PDF. Intenta con un archivo diferente.',
-  );
-}
+      textoPdf = await extraerTextoPdf(file.buffer);
+    } catch (e: unknown) {
+      this.logger.error('Error al procesar PDF', e);
+      throw new InternalServerErrorException(
+        'No se pudo procesar el contenido del PDF. Intenta con un archivo diferente.',
+      );
+    }
 
-    // ── 4. Validar estructura del RUT DIAN ────────────────────────────────────
     const estructuraRUT = validarEstructuraRUT(textoPdf);
     if (!estructuraRUT) {
       throw new BadRequestException(
@@ -176,7 +180,6 @@ try {
       );
     }
 
-    // ── 5. Extraer campos del formulario ──────────────────────────────────────
     const extraido = extraerCamposRut(textoPdf);
 
     if (!extraido.nit) {
@@ -186,7 +189,6 @@ try {
       );
     }
 
-    // ── 6. NIT debe coincidir exactamente ─────────────────────────────────────
     const nitCoincide = extraido.nit === nit;
     if (!nitCoincide) {
       throw new BadRequestException({
@@ -201,7 +203,6 @@ try {
       });
     }
 
-    // ── 7. Razón social debe coincidir (flexible) ─────────────────────────────
     const razonSocialCoincide = compararRazonSocial(
       empresa.razonSocial,
       extraido.razonSocial,
@@ -219,7 +220,6 @@ try {
       });
     }
 
-    // ── 8. Correo debe estar presente en el RUT ───────────────────────────────
     if (!extraido.correo) {
       throw new BadRequestException(
         'No se encontró correo electrónico en el RUT. ' +
@@ -227,7 +227,6 @@ try {
       );
     }
 
-    // ── 9. Validar QR (no bloqueante si está en imagen — advertencia en log) ──
     let qrPresente = false;
     let qrValido = false;
 
@@ -240,8 +239,6 @@ try {
       qrValido = false;
     }
 
-    // Los RUTs de la DIAN tienen el QR como imagen vectorial (no texto),
-    // por lo que pdf-parse no puede leerlo. Solo logueamos advertencia.
     if (!qrPresente) {
       this.logger.warn(
         `[RUT] QR no encontrado en texto del PDF para NIT ${nit}. ` +
@@ -249,15 +246,8 @@ try {
       );
     }
 
-    // Si RECHAZAR_SIN_QR = true y queremos ser estrictos, descomenta:
-    // if (RECHAZAR_SIN_QR && !qrPresente) {
-    //   throw new BadRequestException('El RUT no contiene un código QR válido de la DIAN.');
-    // }
-
-    // ── 10. Guardar correo en la empresa (para el paso OTP) ───────────────────
     empresa.correo = extraido.correo;
     empresa.rutValidado = true;
-    // empresa.rutUrl = null; // Se asignará cuando se implemente Firebase
     await this.empresaRepo.save(empresa);
 
     this.logger.log(`[RUT] Validación exitosa para NIT ${nit} — correo: ${extraido.correo}`);
@@ -293,10 +283,8 @@ try {
       );
     }
 
-    // Invalidar OTPs anteriores de este NIT
     await this.otpRepo.update({ nit, usado: false }, { usado: true });
 
-    // Generar OTP de 6 dígitos criptográficamente seguro
     const codigo = randomInt(100000, 999999).toString();
     const codigoHash = await bcrypt.hash(codigo, 10);
 
@@ -306,7 +294,6 @@ try {
     const otp = this.otpRepo.create({ nit, codigoHash, expiraEn, usado: false });
     await this.otpRepo.save(otp);
 
-    // Enviar correo
     try {
       await this.mailService.enviarOtp(empresa.correo, empresa.razonSocial, codigo);
     } catch (err) {
@@ -416,67 +403,101 @@ try {
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // LOGIN
+  // LOGIN EMPRESA
   // ─────────────────────────────────────────────────────────────────────────────
-async login(dto: LoginDto) {
-  const identificador = dto.identificador.trim();
+  async login(dto: LoginDto) {
+    const identificador = dto.identificador.trim();
 
-  let empresa: EmpresaEntity | null = null;
+    let empresa: EmpresaEntity | null = null;
 
-  if (/^\d+$/.test(identificador)) {
-    empresa = await this.empresaRepo.findOne({
-      where: { nit: identificador },
-      relations: ['profile'],  // ← para traer logoUrl
+    if (/^\d+$/.test(identificador)) {
+      empresa = await this.empresaRepo.findOne({
+        where: { nit: identificador },
+        relations: ['profile'],
+      });
+    } else {
+      empresa = await this.empresaRepo.findOne({
+        where: { correo: identificador.toLowerCase() },
+        relations: ['profile'],
+      });
+    }
+
+    if (!empresa) {
+      throw new UnauthorizedException('NIT/correo o contraseña incorrectos.');
+    }
+
+    const cuenta = await this.cuentaRepo.findOne({
+      where: { empresa: { id: empresa.id }, activo: true },
+      relations: ['empresa'],
     });
-  } else {
-    empresa = await this.empresaRepo.findOne({
-      where: { correo: identificador.toLowerCase() },
-      relations: ['profile'],  // ← para traer logoUrl
-    });
-  }
 
-  if (!empresa) {
-    throw new UnauthorizedException('NIT/correo o contraseña incorrectos.');
-  }
+    if (!cuenta) {
+      throw new UnauthorizedException('NIT/correo o contraseña incorrectos.');
+    }
 
-  const cuenta = await this.cuentaRepo.findOne({
-    where: { empresa: { id: empresa.id }, activo: true },
-    relations: ['empresa'],
-  });
+    const passwordValida = await bcrypt.compare(dto.password, cuenta.passwordHash);
+    if (!passwordValida) {
+      throw new UnauthorizedException('NIT/correo o contraseña incorrectos.');
+    }
 
-  if (!cuenta) {
-    throw new UnauthorizedException('NIT/correo o contraseña incorrectos.');
-  }
-
-  const passwordValida = await bcrypt.compare(dto.password, cuenta.passwordHash);
-
-  if (!passwordValida) {
-    throw new UnauthorizedException('NIT/correo o contraseña incorrectos.');
-  }
-
-  const payload = {
-    sub: cuenta.id,
-    empresaId: empresa.id,      
-    nit: empresa.nit,
-    razonSocial: empresa.razonSocial,
-    correo: empresa.correo,
-  }
-
-  const accessToken = this.jwtService.sign(payload)
-
-  return {
-    ok: true,
-    accessToken,
-    empresa: {
+    const accessToken = this.jwtService.sign({
+      sub: cuenta.id,
+      tipo: 'empresa',
+      empresaId: empresa.id,
       nit: empresa.nit,
-      dv: empresa.dv,
       razonSocial: empresa.razonSocial,
-      correo: this.enmascararEmail(empresa.correo),
-      estado: empresa.estado,
-      logoUrl: empresa.profile?.logoUrl || null, 
-    },
+      correo: empresa.correo,
+    });
+
+    return {
+      ok: true,
+      accessToken,
+      empresa: {
+        nit: empresa.nit,
+        dv: empresa.dv,
+        razonSocial: empresa.razonSocial,
+        correo: this.enmascararEmail(empresa.correo),
+        estado: empresa.estado,
+        logoUrl: empresa.profile?.logoUrl || null,
+      },
+    };
   }
-}
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // LOGIN USUARIO CON GOOGLE
+  // ─────────────────────────────────────────────────────────────────────────────
+  async loginConGoogle(googleUser: {
+    googleId: string;
+    email: string;
+    nombreCompleto: string;
+    fotoUrl: string | null;
+  }): Promise<string> {
+    let usuario = await this.usuarioRepo.findOne({
+      where: { googleId: googleUser.googleId },
+    });
+
+    if (!usuario) {
+      usuario = this.usuarioRepo.create({
+        googleId: googleUser.googleId,
+        email: googleUser.email,
+        nombreCompleto: googleUser.nombreCompleto,
+        fotoUrl: googleUser.fotoUrl,
+      });
+    } else {
+      if (googleUser.fotoUrl) usuario.fotoUrl = googleUser.fotoUrl;
+    }
+
+    await this.usuarioRepo.save(usuario);
+
+return this.jwtService.sign({
+  sub: String(usuario.id),
+  tipo: 'usuario',
+  email: usuario.email,
+  nombre: usuario.nombreCompleto,
+  fotoUrl: usuario.fotoUrl,
+});
+  }
+
   // ─────────────────────────────────────────────────────────────────────────────
   // HELPERS PRIVADOS
   // ─────────────────────────────────────────────────────────────────────────────
@@ -499,32 +520,31 @@ async login(dto: LoginDto) {
   }
 
   async getEmpresaPerfil(nit: string) {
-  const empresa = await this.empresaRepo.findOne({
-    where: { nit },
-    relations: ['profile'],
-  });
-  if (!empresa) throw new NotFoundException('Empresa no encontrada');
-  return { empresa, profile: empresa.profile ?? null };
-}
-
-async updateEmpresaPerfil(nit: string, dto: UpdateEmpresaProfileDto) {
-  const empresa = await this.empresaRepo.findOne({
-    where: { nit },
-    relations: ['profile'],
-  });
-  if (!empresa) throw new NotFoundException('Empresa no encontrada');
-
-  // Genera slug a partir de nombreComercial (o razonSocial como fallback)
-  const nombreParaSlug = dto.nombreComercial || empresa.profile?.nombreComercial || empresa.razonSocial;
-  const slug = await this.generarSlugEmpresa(nombreParaSlug, empresa.profile?.id);
-
-  if (empresa.profile) {
-    await this.profileRepo.update(empresa.profile.id, { ...dto, slug });
-  } else {
-    const profile = this.profileRepo.create({ empresaId: empresa.id, ...dto, slug });
-    await this.profileRepo.save(profile);
+    const empresa = await this.empresaRepo.findOne({
+      where: { nit },
+      relations: ['profile'],
+    });
+    if (!empresa) throw new NotFoundException('Empresa no encontrada');
+    return { empresa, profile: empresa.profile ?? null };
   }
 
-  return this.getEmpresaPerfil(nit);
-}
+  async updateEmpresaPerfil(nit: string, dto: UpdateEmpresaProfileDto) {
+    const empresa = await this.empresaRepo.findOne({
+      where: { nit },
+      relations: ['profile'],
+    });
+    if (!empresa) throw new NotFoundException('Empresa no encontrada');
+
+    const nombreParaSlug = dto.nombreComercial || empresa.profile?.nombreComercial || empresa.razonSocial;
+    const slug = await this.generarSlugEmpresa(nombreParaSlug, empresa.profile?.id);
+
+    if (empresa.profile) {
+      await this.profileRepo.update(empresa.profile.id, { ...dto, slug });
+    } else {
+      const profile = this.profileRepo.create({ empresaId: empresa.id, ...dto, slug });
+      await this.profileRepo.save(profile);
+    }
+
+    return this.getEmpresaPerfil(nit);
+  }
 }

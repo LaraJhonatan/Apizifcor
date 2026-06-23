@@ -5,10 +5,15 @@ import { ConfigService } from '@nestjs/config';
 
 export interface JwtPayload {
   sub: string;
-  empresaId: string;  // ← agregar
-  nit: string;
-  razonSocial: string;
-  correo: string;
+  tipo: 'empresa' | 'usuario';
+  // campos empresa
+  empresaId?: string;
+  nit?: string;
+  razonSocial?: string;
+  correo?: string;
+  // campos usuario
+  email?: string;
+  nombre?: string;
   iat?: number;
   exp?: number;
 }
@@ -23,17 +28,23 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  /**
-   * Este objeto queda disponible como `req.user` en los controladores
-   * protegidos con @UseGuards(JwtAuthGuard).
-   */
-validate(payload: JwtPayload) {
-  return {
-    cuentaId: payload.sub,
-    empresaId: payload.empresaId,  
-    nit: payload.nit,
-    razonSocial: payload.razonSocial,
-    correo: payload.correo,
-  };
-}
+  validate(payload: JwtPayload) {
+    if (payload.tipo === 'usuario') {
+      return {
+        usuarioId: payload.sub,
+        email: payload.email,
+        nombre: payload.nombre,
+        tipo: 'usuario',
+      };
+    }
+
+    return {
+      cuentaId: payload.sub,
+      empresaId: payload.empresaId,
+      nit: payload.nit,
+      razonSocial: payload.razonSocial,
+      correo: payload.correo,
+      tipo: 'empresa',
+    };
+  }
 }

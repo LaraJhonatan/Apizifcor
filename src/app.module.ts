@@ -26,7 +26,7 @@ import { SectorEntity } from './sectores/entities/sector.entity';
 import { ProductSector } from './sectores/entities/product-sector.entity';
 import { EmpresaSector } from './sectores/entities/empresa-sector.entity';
 
-import { User } from './users/entities/user.entity';
+import { UsuarioEntity } from './users/entities/user.entity';
 import { Cart } from './cart/entities/cart.entity';
 import { Order } from './orders/entities/order.entity';
 import { Review } from './reviews/entities/review.entity';
@@ -63,7 +63,7 @@ import { ProductStatusHistory } from './products/entities/product-status-history
         SectorEntity,
         ProductSector,
         EmpresaSector,
-        User,
+        UsuarioEntity,
         Cart,
         Order,
         Review,

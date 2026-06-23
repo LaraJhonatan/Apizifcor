@@ -7,9 +7,11 @@ import {
   UseGuards,
   Request,
   BadRequestException,
-  HttpCode,Get, Patch,
+  HttpCode,
+  Get,
+  Patch,
   HttpStatus,
-  
+  Res,
 } from '@nestjs/common';
 import { UpdateEmpresaProfileDto } from './dto/update-empresa-profile.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -20,6 +22,9 @@ import {
   ApiBearerAuth,
   ApiBody,
 } from '@nestjs/swagger';
+import { AuthGuard } from '@nestjs/passport';
+import { ConfigService } from '@nestjs/config';
+import { Response } from 'express';
 
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -34,7 +39,10 @@ import { LoginDto } from './dto/login.dto';
 @ApiTags('Autenticación Empresarial')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly config: ConfigService,
+  ) {}
 
   // ─────────────────────────────────────────────────────────────────────────────
   // PASO 1 — Consultar empresa por NIT en RUES / DIAN
@@ -65,7 +73,7 @@ export class AuthController {
   })
   @UseInterceptors(
     FileInterceptor('rut', {
-      limits: { fileSize: 5 * 1024 * 1024 }, // máx 5 MB
+      limits: { fileSize: 5 * 1024 * 1024 },
       fileFilter: (_req, file, cb) => {
         if (file.mimetype !== 'application/pdf') {
           return cb(new BadRequestException('Solo se aceptan archivos PDF'), false);
@@ -113,13 +121,37 @@ export class AuthController {
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // LOGIN
+  // LOGIN EMPRESA
   // ─────────────────────────────────────────────────────────────────────────────
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Inicia sesión con NIT o correo + contraseña' })
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // GOOGLE OAUTH — USUARIOS
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  @Get('google/url')
+  @ApiOperation({ summary: 'Devuelve la URL para iniciar OAuth con Google' })
+  getGoogleUrl() {
+    return { url: '/api/auth/google' };
+  }
+
+  @Get('google')
+  @UseGuards(AuthGuard('google'))
+  @ApiOperation({ summary: 'Inicia el flujo OAuth con Google' })
+  googleAuth() {}
+
+  @Get('google/callback')
+  @UseGuards(AuthGuard('google'))
+  @ApiOperation({ summary: 'Callback de Google — genera JWT y redirige al frontend' })
+  async googleCallback(@Request() req, @Res() res: Response) {
+    const token = await this.authService.loginConGoogle(req.user);
+    const frontendUrl = this.config.get<string>('FRONTEND_URL');
+    res.redirect(`${frontendUrl}/auth/callback?token=${token}`);
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -134,21 +166,21 @@ export class AuthController {
     return req.user;
   }
 
-@UseGuards(JwtAuthGuard)
-@Get('empresa/perfil')
-@HttpCode(HttpStatus.OK)
-@ApiBearerAuth()
-@ApiOperation({ summary: 'Obtiene el perfil de la empresa autenticada' })
-getEmpresaPerfil(@Request() req) {
-  return this.authService.getEmpresaPerfil(req.user.nit);
-}
+  @UseGuards(JwtAuthGuard)
+  @Get('empresa/perfil')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Obtiene el perfil de la empresa autenticada' })
+  getEmpresaPerfil(@Request() req) {
+    return this.authService.getEmpresaPerfil(req.user.nit);
+  }
 
-@UseGuards(JwtAuthGuard)
-@Patch('empresa/perfil')
-@HttpCode(HttpStatus.OK)
-@ApiBearerAuth()
-@ApiOperation({ summary: 'Actualiza el perfil de la empresa autenticada' })
-updateEmpresaPerfil(@Request() req, @Body() dto: UpdateEmpresaProfileDto) {
-  return this.authService.updateEmpresaPerfil(req.user.nit, dto);
-}
+  @UseGuards(JwtAuthGuard)
+  @Patch('empresa/perfil')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Actualiza el perfil de la empresa autenticada' })
+  updateEmpresaPerfil(@Request() req, @Body() dto: UpdateEmpresaProfileDto) {
+    return this.authService.updateEmpresaPerfil(req.user.nit, dto);
+  }
 }
