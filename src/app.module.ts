@@ -17,6 +17,7 @@ import { UploadsModule } from './uploads/uploads.module';
 import { SectoresModule } from './sectores/sectores.module';
 import { PublicModule } from './public/public.module';
 import { SitemapModule } from './sitemap/sitemap.module';
+import { DestacadosModule } from './destacados/destacados.module';
 
 import { EmpresaEntity } from './auth/entities/empresa.entity';
 import { CuentaEmpresaEntity } from './auth/entities/cuenta-empresa.entity';
@@ -44,6 +45,7 @@ import { ProductVariant } from './products/entities/product-variant.entity';
 import { ProductVariantAttributeValue } from './products/entities/product-variant-attribute-value.entity';
 import { ProductImage } from './products/entities/product-image.entity';
 import { ProductStatusHistory } from './products/entities/product-status-history.entity';
+import { SeccionDestacadoEntity } from './destacados/entities/seccion-destacado.entity';
 
 @Module({
   imports: [
@@ -79,6 +81,7 @@ import { ProductStatusHistory } from './products/entities/product-status-history
         ProductVariantAttributeValue,
         ProductImage,
         ProductStatusHistory,
+        SeccionDestacadoEntity,
       ],
       synchronize: true,
       logging: true,
@@ -101,6 +104,7 @@ import { ProductStatusHistory } from './products/entities/product-status-history
     SectoresModule,
     PublicModule,
     SitemapModule,
+    DestacadosModule,
   ],
   controllers: [AppController],
   providers: [AppService],
