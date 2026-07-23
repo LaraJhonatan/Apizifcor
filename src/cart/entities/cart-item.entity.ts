@@ -12,11 +12,6 @@ import {
 import { Cart } from './cart.entity';
 import { Product } from '../../products/entities/product.entity';
 
-/**
- * Línea del carrito: un producto + cantidad.
- * El precio, nombre y flag pagableEnLinea se leen del producto en tiempo real
- * (no se snapshotean), para que el carrito siempre refleje datos actuales.
- */
 @Entity('carrito_items')
 @Unique('UQ_cart_product', ['cartId', 'productId'])
 export class CartItem {

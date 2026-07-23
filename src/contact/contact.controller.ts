@@ -7,7 +7,6 @@ import { CreateSolicitudMaquinariaDto } from './dto/create-solicitud-maquinaria.
 export class ContactController {
   constructor(private readonly contactService: ContactService) {}
 
-  // Formulario de contacto general
   @Post('contacto')
   createContact(@Body() dto: CreateContactDto) {
     return this.contactService.createContact(dto);
@@ -18,7 +17,6 @@ export class ContactController {
     return this.contactService.findAllContacts();
   }
 
-  // Formulario de solicitud de maquinaria
   @Post('maquinaria')
   createSolicitud(@Body() dto: CreateSolicitudMaquinariaDto) {
     return this.contactService.createSolicitudMaquinaria(dto);

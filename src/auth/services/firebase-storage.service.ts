@@ -1,15 +1,4 @@
-/**
- * FirebaseStorageService
- * ─────────────────────────────────────────────────────────────────────────────
- * Sube el PDF del RUT a Firebase Storage y devuelve la URL de descarga segura.
- *
- * Configuración necesaria en .env:
- *   FIREBASE_PROJECT_ID=
- *   FIREBASE_CLIENT_EMAIL=
- *   FIREBASE_PRIVATE_KEY=       (con \n reales)
- *   FIREBASE_STORAGE_BUCKET=    (ej: mi-proyecto.appspot.com)
- * ─────────────────────────────────────────────────────────────────────────────
- */
+
 
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -44,12 +33,6 @@ onModuleInit() {
   }
 }
 
-  /**
-   * Sube el PDF del RUT a Firebase Storage bajo la ruta:
-   *   ruts/{nit}/{timestamp}_{filename}
-   *
-   * Devuelve la URL de descarga firmada (válida por 10 años, ajustable).
-   */
   async subirRut(
     buffer: Buffer,
     nit: string,
@@ -71,7 +54,6 @@ onModuleInit() {
       },
     });
 
-    // URL firmada válida por 10 años (para uso interno)
     const expiracion = new Date();
     expiracion.setFullYear(expiracion.getFullYear() + 10);
 
@@ -84,9 +66,6 @@ onModuleInit() {
     return url;
   }
 
-  /**
-   * Elimina el RUT de un NIT del Storage (útil si el usuario re-sube el RUT).
-   */
   async eliminarRutsAnteriores(nit: string): Promise<void> {
     try {
       const [files] = await this.bucket.getFiles({ prefix: `ruts/${nit}/` });

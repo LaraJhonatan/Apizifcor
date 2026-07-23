@@ -16,16 +16,11 @@ import { AddCartItemDto } from './dto/create-cart.dto';
 import { UpdateCartItemDto } from './dto/update-cart.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
-/**
- * Carrito de compras — solo para usuarios (login con Gmail).
- * Todas las rutas requieren JWT válido de tipo 'usuario'.
- */
 @UseGuards(JwtAuthGuard)
 @Controller('cart')
 export class CartController {
   constructor(private readonly cartService: CartService) {}
 
-  /** Extrae el id de usuario del token; rechaza cuentas empresa. */
   private getUsuarioId(req: any): number {
     const user = req.user;
     if (!user || user.tipo !== 'usuario' || !user.usuarioId) {

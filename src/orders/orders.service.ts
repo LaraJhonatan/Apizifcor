@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
@@ -8,11 +8,14 @@ import { Cart } from '../cart/entities/cart.entity';
 import { CartItem } from '../cart/entities/cart-item.entity';
 import { Product } from '../products/entities/product.entity';
 import { OrderStatus } from '../common/enums/order-status.enum';
+import { ProductStatus } from '../common/enums/product-status.enum';
 import { WompiService } from '../wompi/wompi.service';
 import { CheckoutDto } from './dto/checkout.dto';
 
 @Injectable()
 export class OrdersService {
+  private readonly logger = new Logger(OrdersService.name);
+
   constructor(
     @InjectRepository(Order) private readonly orderRepo: Repository<Order>,
     @InjectRepository(OrderItem) private readonly itemRepo: Repository<OrderItem>,
@@ -23,29 +26,45 @@ export class OrdersService {
     private readonly config: ConfigService,
   ) {}
 
-  /** Crea una orden PENDING a partir de los ítems pagables del carrito y arma los datos del widget de Wompi. */
   async checkout(usuarioId: number, envio: CheckoutDto) {
     const cart = await this.cartRepo.findOne({ where: { usuarioId } });
     if (!cart) throw new BadRequestException('Tu carrito está vacío.');
 
     const items = await this.cartItemRepo.find({
       where: { cartId: cart.id },
-      relations: ['product'],
+      relations: ['product', 'product.variantes'],
     });
 
-    // Solo los ítems pagables en línea (con precio) entran a la orden de pago;
-    // los que requieren cotización se gestionan por WhatsApp, no aquí.
-    // El precio y la cantidad se leen SIEMPRE del carrito guardado en el servidor
-    // (nunca de algo que mande el navegador), así que nada de lo que se vea o se
-    // manipule en el front cambia lo que realmente se cobra.
     const pagables = items.filter(
-      (it) => it.product && !it.product.eliminado && it.product.pagableEnLinea && it.product.precioBase != null,
+      (it) =>
+        it.product &&
+        !it.product.eliminado &&
+        it.product.estado === ProductStatus.PUBLISHED &&
+        it.product.pagableEnLinea &&
+        it.product.precioBase != null,
     );
 
     if (!pagables.length) {
       throw new BadRequestException('No hay productos pagables en línea en el carrito.');
     }
 
+    for (const it of pagables) {
+      const stock = this.effectiveStock(it.product);
+      if (stock != null && it.cantidad > stock) {
+        throw new BadRequestException(
+          stock === 0
+            ? `"${it.product.nombre}" se agotó. Quítalo del carrito para continuar.`
+            : `De "${it.product.nombre}" solo quedan ${stock} unidad(es). Ajusta la cantidad en tu carrito.`,
+        );
+      }
+    }
+
+    const monedas = new Set(pagables.map((it) => it.product.moneda || 'COP'));
+    if (monedas.size > 1) {
+      throw new BadRequestException(
+        'El carrito tiene productos en monedas distintas; sepáralos en compras diferentes.',
+      );
+    }
     const moneda = pagables[0].product.moneda || 'COP';
     const subtotal = pagables.reduce(
       (sum, it) => sum + Number(it.product.precioBase) * it.cantidad,
@@ -55,7 +74,7 @@ export class OrdersService {
     let order = await this.orderRepo.save(
       this.orderRepo.create({
         usuarioId,
-        reference: 'PENDIENTE', // se reemplaza abajo, ya con el id definitivo
+        reference: 'PENDIENTE',
         estado: OrderStatus.PENDING,
         subtotal,
         moneda,
@@ -112,17 +131,40 @@ export class OrdersService {
     });
   }
 
-  /** Procesa un evento de Wompi cuya firma ya fue verificada. */
+  private effectiveStock(product: Product): number | null {
+    const activas = (product.variantes || []).filter((v) => v.activo);
+    if (activas.length) {
+      return activas.reduce((s, v) => s + (Number(v.stock) || 0), 0);
+    }
+    return product.stock != null ? Number(product.stock) : null;
+  }
+
   async handleWompiEvent(payload: any) {
     const tx = payload?.data?.transaction;
     if (!tx?.reference) return;
 
     const order = await this.orderRepo.findOne({ where: { reference: tx.reference } });
-    if (!order) return; // referencia desconocida — se ignora
+    if (!order) return;
 
-    // Idempotencia básica: si ya quedó aprobada, no la volvemos a procesar
-    // (evita descontar el stock dos veces si Wompi reenvía el evento).
     if (order.estado === OrderStatus.APPROVED) return;
+
+    const esperadoCents = Math.round(Number(order.subtotal) * 100);
+    if (
+      tx.status === 'APPROVED' &&
+      (Number(tx.amount_in_cents) !== esperadoCents ||
+        (tx.currency && tx.currency !== order.moneda))
+    ) {
+      this.logger.error(
+        `Monto/moneda del pago no coincide con la orden ${order.id}: ` +
+          `pagado ${tx.amount_in_cents} ${tx.currency}, esperado ${esperadoCents} ${order.moneda}. ` +
+          `Transacción ${tx.id}. Se marca ERROR para revisión manual.`,
+      );
+      order.estado = OrderStatus.ERROR;
+      order.wompiTransactionId = tx.id || null;
+      order.wompiMetodoPago = tx.payment_method_type || null;
+      await this.orderRepo.save(order);
+      return;
+    }
 
     const estado = this.mapWompiStatus(tx.status);
     order.estado = estado;
@@ -150,10 +192,6 @@ export class OrdersService {
     }
   }
 
-  /**
-   * Descuenta el stock de forma atómica (UPDATE condicionado, evita sobreventa
-   * si dos personas pagan casi al mismo tiempo) y limpia esos ítems del carrito.
-   */
   private async descontarStockYLimpiarCarrito(order: Order) {
     const items = await this.itemRepo.find({ where: { orderId: order.id } });
     const cart = await this.cartRepo.findOne({ where: { usuarioId: order.usuarioId } });
@@ -161,7 +199,7 @@ export class OrdersService {
     for (const item of items) {
       if (!item.productId) continue;
 
-      await this.productRepo
+      const result = await this.productRepo
         .createQueryBuilder()
         .update(Product)
         .set({ stock: () => 'stock - :cant' })
@@ -169,6 +207,13 @@ export class OrdersService {
         .andWhere('(stock IS NULL OR stock >= :cant)')
         .setParameter('cant', item.cantidad)
         .execute();
+
+      if (!result.affected) {
+        this.logger.warn(
+          `Orden ${order.id} aprobada pero sin stock suficiente para descontar ` +
+            `${item.cantidad} x producto ${item.productId} ("${item.nombre}"). Revisar manualmente.`,
+        );
+      }
 
       if (cart) {
         await this.cartItemRepo.delete({ cartId: cart.id, productId: item.productId });

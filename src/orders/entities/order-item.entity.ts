@@ -9,11 +9,6 @@ import {
 import { Order } from './order.entity';
 import { Product } from '../../products/entities/product.entity';
 
-/**
- * Línea de una orden. Guarda una "foto" del producto al momento de comprar
- * (nombre, precio) para que el historial no cambie si luego se edita o
- * elimina el producto.
- */
 @Entity('order_items')
 export class OrderItem {
   @PrimaryGeneratedColumn('uuid')

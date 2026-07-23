@@ -45,7 +45,7 @@ async create(dto: CreateProductDto, userId?: string): Promise<Product> {
     categoryId:    dto.categoryId,
     subcategoryId: dto.subcategoryId,
     nombre:        dto.nombre,
-    slug,                         
+    slug,
     descripcion:   dto.descripcion,
     sku:           dto.sku,
     marca:         dto.marca,
@@ -60,7 +60,6 @@ async create(dto: CreateProductDto, userId?: string): Promise<Product> {
 
   const saved = await this.productRepo.save(product);
 
-  // ... resto igual (atributos, imagenes, variantes)
   if (dto.atributos?.length) {
     const values = dto.atributos.map(a =>
       this.atributoValueRepo.create({ productId: saved.id, ...a }),
@@ -97,7 +96,6 @@ async create(dto: CreateProductDto, userId?: string): Promise<Product> {
   return this.getById(saved.id);
 }
 
-
   async findAll(filters: FilterProductsDto & { empresaId?: string }) {
     const {
       page = 1, limit = 20,
@@ -110,7 +108,6 @@ async create(dto: CreateProductDto, userId?: string): Promise<Product> {
       .leftJoinAndSelect('p.imagenes', 'imagenes')
       .where('p.eliminado = :eliminado', { eliminado: false });
 
-    // Siempre filtra por empresa si se proporciona
     if (empresaId) qb.andWhere('p.empresaId = :empresaId', { empresaId });
     if (categoryId) qb.andWhere('p.categoryId = :categoryId', { categoryId });
     if (subcategoryId) qb.andWhere('p.subcategoryId = :subcategoryId', { subcategoryId });
@@ -140,7 +137,6 @@ async create(dto: CreateProductDto, userId?: string): Promise<Product> {
 
     if (!product) throw new NotFoundException('Producto no encontrado');
 
-    // Si se pasa empresaId, validar que el producto pertenece a esa empresa
     if (empresaId && product.empresaId !== empresaId) {
       throw new ForbiddenException('No tienes permiso para acceder a este producto');
     }
@@ -151,13 +147,10 @@ async create(dto: CreateProductDto, userId?: string): Promise<Product> {
   async update(id: string, dto: Partial<CreateProductDto>, empresaId?: string, userId?: string): Promise<Product> {
   const product = await this.getById(id, empresaId);
 
-  // Seguridad: el update nunca puede reasignar la empresa dueña ni el id del producto.
-  // (el DTO hereda estos campos, pero se ignoran para evitar tomar productos de otra empresa)
   const { empresaId: _ignoreEmpresaId, id: _ignoreId, ...safeDto } = dto as Record<string, unknown>;
   void _ignoreEmpresaId;
   void _ignoreId;
 
-  // Regenerar slug solo si cambió el nombre
   const slug = dto.nombre && dto.nombre !== product.nombre
     ? await this.generarSlugProducto(dto.nombre, id)
     : product.slug;
@@ -165,14 +158,13 @@ async create(dto: CreateProductDto, userId?: string): Promise<Product> {
   await this.productRepo.save({
     ...product,
     ...safeDto,
-    slug,                          // ← nuevo
+    slug,
     updatedBy: userId,
     atributos: undefined,
     imagenes:  undefined,
     variantes: undefined,
   });
 
-  // ... resto igual
   if (dto.atributos) {
     await this.atributoValueRepo.delete({ productId: id });
     const values = dto.atributos.map(a =>
@@ -212,7 +204,7 @@ async create(dto: CreateProductDto, userId?: string): Promise<Product> {
 }
 
   async changeStatus(id: string, dto: ChangeProductStatusDto, empresaId?: string, userId?: string): Promise<Product> {
-    // Valida propiedad antes de cambiar estado
+
     const product = await this.getById(id, empresaId);
 
     const history = this.statusHistoryRepo.create({
@@ -228,7 +220,7 @@ async create(dto: CreateProductDto, userId?: string): Promise<Product> {
   }
 
   async softDelete(id: string, empresaId?: string, userId?: string): Promise<void> {
-    // Valida propiedad antes de eliminar
+
     await this.getById(id, empresaId);
     await this.productRepo.update(id, { eliminado: true, updatedBy: userId });
   }

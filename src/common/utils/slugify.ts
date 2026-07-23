@@ -4,14 +4,13 @@ export function slugify(text: string): string {
     .toString()
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')   // quita tildes
-    .replace(/[^a-z0-9\s-]/g, '')      // solo letras, números, espacios y guiones
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s-]/g, '')
     .trim()
-    .replace(/\s+/g, '-')              // espacios → guiones
-    .replace(/-+/g, '-');              // guiones múltiples → uno
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
 }
 
-// Genera slug único agregando sufijo numérico si ya existe
 export async function slugifyUnique(
   base: string,
   exists: (slug: string) => Promise<boolean>,

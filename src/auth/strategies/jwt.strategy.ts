@@ -6,12 +6,12 @@ import { ConfigService } from '@nestjs/config';
 export interface JwtPayload {
   sub: string;
   tipo: 'empresa' | 'usuario';
-  // campos empresa
+
   empresaId?: string;
   nit?: string;
   razonSocial?: string;
   correo?: string;
-  // campos usuario
+
   email?: string;
   nombre?: string;
   iat?: number;

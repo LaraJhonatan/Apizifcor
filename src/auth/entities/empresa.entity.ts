@@ -53,7 +53,6 @@ export class EmpresaEntity {
   @Column({ default: false })
   rutValidado: boolean;
 
-  // Mantenemos sectorId original — no se toca hasta migrar el frontend
   @Column({ nullable: true })
   sectorId: string;
 
@@ -70,7 +69,6 @@ export class EmpresaEntity {
   @OneToMany(() => Product, p => p.empresa)
   products: Product[];
 
-  // Nueva relación many-to-many vía tabla pivote
   @OneToMany(() => EmpresaSector, es => es.empresa, { cascade: true })
   sectores: EmpresaSector[];
 

@@ -24,16 +24,10 @@ export class WompiService {
     return this.config.get<string>('WOMPI_EVENTS_SECRET');
   }
 
-  /** 'test' (sandbox) o 'prod' — solo informativo para el front. */
   get environment(): string {
     return this.config.get<string>('WOMPI_ENVIRONMENT', 'test');
   }
 
-  /**
-   * Firma de integridad que exige el Widget de Wompi para abrir el checkout,
-   * evitando que el monto se manipule desde el navegador.
-   * Fórmula oficial: sha256(referencia + montoEnCentavos + moneda + secretoIntegridad)
-   */
   buildIntegritySignature(reference: string, amountInCents: number, currency = 'COP'): string {
     if (!this.integritySecret) {
       this.logger.warn('WOMPI_INTEGRITY_SECRET no está configurado — el widget rechazará la transacción.');
@@ -42,12 +36,6 @@ export class WompiService {
     return crypto.createHash('sha256').update(raw).digest('hex');
   }
 
-  /**
-   * Verifica la firma de un evento (webhook) de Wompi.
-   * Algoritmo oficial: concatenar los valores de signature.properties (en ese
-   * orden, leídos de "data" por ruta con puntos), luego el timestamp, luego el
-   * secreto de eventos, y comparar el sha256 resultante contra signature.checksum.
-   */
   verifyEventSignature(payload: any): boolean {
     try {
       const properties: string[] = payload?.signature?.properties || [];

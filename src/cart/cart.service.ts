@@ -21,7 +21,6 @@ export class CartService {
     private readonly productRepo: Repository<Product>,
   ) {}
 
-  /** Devuelve el carrito del usuario, creándolo si no existe. */
   private async getOrCreateCart(usuarioId: number): Promise<Cart> {
     let cart = await this.cartRepo.findOne({ where: { usuarioId } });
     if (!cart) {
@@ -30,11 +29,6 @@ export class CartService {
     return cart;
   }
 
-  /**
-   * Stock efectivo del producto:
-   *  - Si tiene variantes activas → suma de sus stocks.
-   *  - Si no → el stock propio del producto (null = sin control de inventario).
-   */
   private effectiveStock(product: Product): number | null {
     const activas = (product.variantes || []).filter((v) => v.activo);
     if (activas.length) {
@@ -43,7 +37,6 @@ export class CartService {
     return product.stock != null ? Number(product.stock) : null;
   }
 
-  /** Carrito serializado con los datos actuales de cada producto. */
   async getCart(usuarioId: number) {
     const cart = await this.getOrCreateCart(usuarioId);
 
@@ -94,7 +87,6 @@ export class CartService {
     };
   }
 
-  /** Agrega un producto (o suma cantidad si ya está). */
   async addItem(usuarioId: number, productId: string, cantidad = 1) {
     const product = await this.productRepo.findOne({
       where: { id: productId },
@@ -135,7 +127,6 @@ export class CartService {
     return this.getCart(usuarioId);
   }
 
-  /** Cambia la cantidad de una línea; si queda en 0 la elimina. */
   async updateItem(usuarioId: number, productId: string, cantidad: number) {
     const cart = await this.getOrCreateCart(usuarioId);
     const item = await this.itemRepo.findOne({
@@ -167,14 +158,12 @@ export class CartService {
     return this.getCart(usuarioId);
   }
 
-  /** Elimina una línea del carrito. */
   async removeItem(usuarioId: number, productId: string) {
     const cart = await this.getOrCreateCart(usuarioId);
     await this.itemRepo.delete({ cartId: cart.id, productId });
     return this.getCart(usuarioId);
   }
 
-  /** Vacía el carrito. */
   async clear(usuarioId: number) {
     const cart = await this.getOrCreateCart(usuarioId);
     await this.itemRepo.delete({ cartId: cart.id });

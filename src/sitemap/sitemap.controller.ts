@@ -1,4 +1,4 @@
-// src/sitemap/sitemap.controller.ts
+
 import { Controller, Get, Header, Logger } from '@nestjs/common';
 import { SitemapService } from './sitemap.service';
 

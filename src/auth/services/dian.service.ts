@@ -40,7 +40,6 @@ private readonly NITS_PERMITIDOS: Array<Partial<DatosEmpresa> & { nit: string }>
   },
 ];
 
-  // ── 1. Consultar empresa por NIT en datos.gov.co ──────────────────────────
   async consultarPorNit(nit: string): Promise<DatosEmpresa> {
     try {
       const { data } = await axios.get(
@@ -81,7 +80,7 @@ private readonly NITS_PERMITIDOS: Array<Partial<DatosEmpresa> & { nit: string }>
       };
     } catch (err) {
       if (err instanceof NotFoundException) {
-        // Verificar si el NIT está en la lista de permitidos
+
         const permitido = this.NITS_PERMITIDOS.find((e) => e.nit === nit);
         if (permitido) {
           this.logger.log(
@@ -104,10 +103,10 @@ private readonly NITS_PERMITIDOS: Array<Partial<DatosEmpresa> & { nit: string }>
             fechaRenovacion: null,
             ultimoAnoRenovado: null,
             tipoSociedad: null,
-            ...permitido, // Sobreescribe con los campos definidos en el arreglo
+            ...permitido,
           };
         }
-        // NIT no encontrado y no está en la lista permitida
+
         throw err;
       }
 
@@ -117,7 +116,6 @@ private readonly NITS_PERMITIDOS: Array<Partial<DatosEmpresa> & { nit: string }>
     }
   }
 
-  // ── 2. Extraer correo del RUT PDF ─────────────────────────────────────────
   async extraerCorreoDeRut(pdfBuffer: Buffer, nit: string): Promise<string | null> {
     try {
       const data = await pdfParse(pdfBuffer);
@@ -137,17 +135,13 @@ private readonly NITS_PERMITIDOS: Array<Partial<DatosEmpresa> & { nit: string }>
     return null;
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
-
   private async describirCiiu(codigo: string | null): Promise<string | null> {
     if (!codigo) return null;
 
-    // Devolver desde cache si ya fue consultado
     if (this.ciuuCache[codigo]) {
       return `${codigo} — ${this.ciuuCache[codigo]}`;
     }
 
-    // Intentar consultar la API de la CCB
     try {
       const { data } = await axios.get(
         `https://linea.ccb.org.co/descripcionciiu/Consultar?codigo=${codigo}`,
@@ -159,10 +153,9 @@ private readonly NITS_PERMITIDOS: Array<Partial<DatosEmpresa> & { nit: string }>
         return `${codigo} — ${descripcion}`;
       }
     } catch {
-      // Si falla la CCB, continuar con diccionario local
+
     }
 
-    // Fallback — diccionario local con los más comunes
     const local: Record<string, string> = {
       '0010': 'Asalariados',
       '0020': 'Pensionados',
@@ -434,7 +427,6 @@ private readonly NITS_PERMITIDOS: Array<Partial<DatosEmpresa> & { nit: string }>
     return `${d}/${m}/${y}`;
   }
 
-  // ── Mock fallback ─────────────────────────────────────────────────────────
   private mockEmpresa(nit: string): DatosEmpresa {
     const mocks: Record<string, DatosEmpresa> = {
       '900123456': {

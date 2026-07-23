@@ -49,18 +49,13 @@ export class OrdersController {
     return this.ordersService.getById(id, this.getUsuarioId(req));
   }
 
-  /**
-   * Webhook de Wompi — sin JwtAuthGuard (Wompi no manda un token de usuario).
-   * Se protege verificando la firma del payload con el secreto de eventos.
-   */
   @Post('wompi/webhook')
   @HttpCode(HttpStatus.OK)
   async wompiWebhook(@Body() payload: any) {
     if (this.wompi.verifyEventSignature(payload)) {
       await this.ordersService.handleWompiEvent(payload);
     }
-    // Wompi solo espera 200 OK. Si la firma no es válida, el evento se ignora
-    // en silencio (no conviene revelar el motivo a quien no sea Wompi).
+
     return { received: true };
   }
 }

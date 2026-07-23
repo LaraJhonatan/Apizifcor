@@ -79,9 +79,6 @@ export class AuthService {
     });
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // PASO 1 — Consultar empresa por NIT
-  // ─────────────────────────────────────────────────────────────────────────────
   async consultarNit(dto: ConsultarNitDto) {
     const nit = dto.nit.trim().replace(/\D/g, '');
 
@@ -142,9 +139,6 @@ export class AuthService {
     };
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // PASO 2 — Validar RUT
-  // ─────────────────────────────────────────────────────────────────────────────
   async validarRut(file: Express.Multer.File, dto: ValidarRutDto) {
     const nit = dto.nit.trim().replace(/\D/g, '');
 
@@ -267,9 +261,6 @@ export class AuthService {
     };
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // PASO 3a — Generar y enviar OTP
-  // ─────────────────────────────────────────────────────────────────────────────
   async enviarCodigo(dto: EnviarCodigoDto) {
     const nit = dto.nit.trim().replace(/\D/g, '');
 
@@ -310,9 +301,6 @@ export class AuthService {
     };
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // PASO 3b — Verificar OTP
-  // ─────────────────────────────────────────────────────────────────────────────
   async verificarCodigo(dto: VerificarCodigoDto) {
     const nit = dto.nit.trim().replace(/\D/g, '');
     const codigo = dto.codigo.trim();
@@ -349,9 +337,6 @@ export class AuthService {
     return { ok: true, mensaje: 'Correo verificado correctamente.' };
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // PASO 4 — Crear cuenta empresarial
-  // ─────────────────────────────────────────────────────────────────────────────
   async crearCuentaEmpresa(dto: CrearCuentaEmpresaDto) {
     const nit = dto.nit.trim().replace(/\D/g, '');
 
@@ -402,9 +387,6 @@ export class AuthService {
     };
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // LOGIN EMPRESA
-  // ─────────────────────────────────────────────────────────────────────────────
   async login(dto: LoginDto) {
     const identificador = dto.identificador.trim();
 
@@ -463,9 +445,6 @@ export class AuthService {
     };
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // LOGIN USUARIO CON GOOGLE
-  // ─────────────────────────────────────────────────────────────────────────────
   async loginConGoogle(googleUser: {
     googleId: string;
     email: string;
@@ -498,9 +477,6 @@ return this.jwtService.sign({
 });
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // HELPERS PRIVADOS
-  // ─────────────────────────────────────────────────────────────────────────────
   private enmascararEmail(email: string | null): string {
     if (!email) return '—';
     const [user, domain] = email.split('@');

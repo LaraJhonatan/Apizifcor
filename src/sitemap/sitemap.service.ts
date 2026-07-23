@@ -1,4 +1,4 @@
-// src/sitemap/sitemap.service.ts
+
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -21,7 +21,6 @@ export class SitemapService {
     private readonly sectorRepo: Repository<SectorEntity>,
   ) {}
 
-  // Debe producir el mismo resultado que utils/slugify.js del frontend.
   private slugify(text: string): string {
     return (text || '')
       .toString()
@@ -52,7 +51,7 @@ export class SitemapService {
 
   async generate(): Promise<string> {
     const urls: string[] = [];
-    // Set para deduplicar URLs (defensa contra duplicados en la DB)
+
     const seenUrls = new Set<string>();
 
     const pushUrl = (loc: string, lastmod?: Date | null, priority = '0.7') => {
@@ -61,11 +60,9 @@ export class SitemapService {
       urls.push(this.urlEntry(loc, lastmod, priority));
     };
 
-    // Páginas estáticas
     pushUrl(`${SITE_URL}/`, null, '1.0');
     pushUrl(`${SITE_URL}/tienda`, null, '0.9');
 
-    // SECTORES — mapa id -> slug para resolver el sector de cada empresa por su sectorId.
     const sectorById = new Map<string, string>();
     try {
       const sectores = await this.sectorRepo.find();
@@ -81,7 +78,6 @@ export class SitemapService {
       this.logger.error('Error cargando sectores:', err.message);
     }
 
-    // EMPRESAS — mapa id -> { slug, sectorSlug } para resolver al cargar productos.
     const empresaInfo = new Map<string, { slug: string; sectorSlug: string }>();
     try {
       const empresas = await this.empresaRepo.find({ relations: ['profile'] });
@@ -95,7 +91,6 @@ export class SitemapService {
         const sectorSlug = sectorById.get(String(empAny.sectorId)) || '';
         empresaInfo.set(String(empAny.id), { slug: empresaSlug, sectorSlug });
 
-        // URL de la tienda de empresa (solo si sabemos el sector)
         if (sectorSlug) {
           pushUrl(`${SITE_URL}/tienda/${sectorSlug}/${empresaSlug}`, null, '0.8');
         }
@@ -104,7 +99,6 @@ export class SitemapService {
       this.logger.error('Error cargando empresas:', err.message);
     }
 
-    // PRODUCTOS
     try {
       const productos = await this.productRepo.find({
         relations: ['empresa'],
@@ -119,7 +113,6 @@ export class SitemapService {
       for (const p of productos) {
         const pAny = p as any;
 
-        // Descarta solo si EXPLÍCITAMENTE está marcado como eliminado
         if (pAny.eliminado === true || pAny.eliminado === 1) {
           descartadosEliminados++;
           continue;

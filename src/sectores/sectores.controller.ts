@@ -10,8 +10,6 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 export class SectoresController {
   constructor(private readonly sectoresService: SectoresService) {}
 
-  // ─── Sectores públicos ───────────────────────────────────────
-
   @Get()
   findAll() {
     return this.sectoresService.findAll();
@@ -21,8 +19,6 @@ export class SectoresController {
   findBySlug(@Param('slug') slug: string) {
     return this.sectoresService.findBySlug(slug);
   }
-
-  // ─── Sectores por producto ───────────────────────────────────
 
   @Get('producto/:productId')
   getSectoresProducto(@Param('productId') productId: string) {
@@ -46,8 +42,6 @@ export class SectoresController {
   ) {
     return this.sectoresService.removeSectorProducto(productId, sectorId);
   }
-
-  // ─── Sectores por empresa ────────────────────────────────────
 
   @Get('empresa/:empresaId')
   getSectoresEmpresa(@Param('empresaId') empresaId: string) {

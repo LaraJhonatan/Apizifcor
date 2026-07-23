@@ -1,6 +1,5 @@
 import { IsUUID, IsOptional, IsInt, Min, Max } from 'class-validator';
 
-/** Agregar un producto al carrito */
 export class AddCartItemDto {
   @IsUUID()
   productId: string;

@@ -44,9 +44,6 @@ export class AuthController {
     private readonly config: ConfigService,
   ) {}
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // PASO 1 — Consultar empresa por NIT en RUES / DIAN
-  // ─────────────────────────────────────────────────────────────────────────────
   @Post('empresas/consultar-nit')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Consulta empresa en RUES y DIAN por NIT' })
@@ -54,9 +51,6 @@ export class AuthController {
     return this.authService.consultarNit(dto);
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // PASO 2 — Subir RUT PDF → Firebase Storage → leer correo corporativo
-  // ─────────────────────────────────────────────────────────────────────────────
   @Post('rut/validar')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Valida RUT PDF, lo sube a Firebase y extrae correo' })
@@ -90,9 +84,6 @@ export class AuthController {
     return this.authService.validarRut(file, dto);
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // PASO 3a — Enviar código OTP al correo corporativo
-  // ─────────────────────────────────────────────────────────────────────────────
   @Post('enviar-codigo')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Genera y envía OTP de 6 dígitos al correo de la empresa' })
@@ -100,9 +91,6 @@ export class AuthController {
     return this.authService.enviarCodigo(dto);
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // PASO 3b — Verificar código OTP
-  // ─────────────────────────────────────────────────────────────────────────────
   @Post('verificar-codigo')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Verifica el OTP ingresado por el usuario' })
@@ -110,9 +98,6 @@ export class AuthController {
     return this.authService.verificarCodigo(dto);
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // PASO 4 — Crear cuenta empresarial
-  // ─────────────────────────────────────────────────────────────────────────────
   @Post('crear-cuenta-empresa')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Crea la cuenta empresarial con contraseña' })
@@ -120,19 +105,12 @@ export class AuthController {
     return this.authService.crearCuentaEmpresa(dto);
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // LOGIN EMPRESA
-  // ─────────────────────────────────────────────────────────────────────────────
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Inicia sesión con NIT o correo + contraseña' })
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
   }
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // GOOGLE OAUTH — USUARIOS
-  // ─────────────────────────────────────────────────────────────────────────────
 
   @Get('google/url')
   @ApiOperation({ summary: 'Devuelve la URL para iniciar OAuth con Google' })
@@ -154,9 +132,6 @@ export class AuthController {
     res.redirect(`${frontendUrl}/auth/callback?token=${token}`);
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // PERFIL (ruta protegida — ejemplo de uso del guard)
-  // ─────────────────────────────────────────────────────────────────────────────
   @UseGuards(JwtAuthGuard)
   @Post('perfil')
   @HttpCode(HttpStatus.OK)

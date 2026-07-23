@@ -1,6 +1,5 @@
 import { IsString, IsNotEmpty, IsOptional, MaxLength } from 'class-validator';
 
-/** Datos de envío/contacto que se piden antes de pagar (estilo Mercado Libre/Amazon). */
 export class CheckoutDto {
   @IsString()
   @IsNotEmpty()

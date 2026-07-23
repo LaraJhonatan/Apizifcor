@@ -30,8 +30,6 @@ export class SectoresService {
     return this.sectorRepo.findOne({ where: { slug, activo: true } });
   }
 
-  // ─── Producto ────────────────────────────────────────────────
-
   async getSectoresByProducto(productId: string) {
     return this.productSectorRepo.find({
       where: { productId },
@@ -40,13 +38,12 @@ export class SectoresService {
   }
 
   async assignSectoresProducto(productId: string, dto: AssignSectoresDto) {
-    // Validar que los sectores existen
+
     for (const sectorId of dto.sectorIds) {
       const existe = await this.sectorRepo.findOne({ where: { id: sectorId } });
       if (!existe) throw new NotFoundException(`Sector ${sectorId} no encontrado`);
     }
 
-    // Eliminar asignaciones anteriores y reemplazar
     await this.productSectorRepo.delete({ productId });
 
     const nuevas = dto.sectorIds.map(sectorId =>
@@ -60,8 +57,6 @@ export class SectoresService {
     if (!reg) throw new NotFoundException('Asignación no encontrada');
     return this.productSectorRepo.remove(reg);
   }
-
-  // ─── Empresa ─────────────────────────────────────────────────
 
   async getSectoresByEmpresa(empresaId: string) {
     return this.empresaSectorRepo.find({

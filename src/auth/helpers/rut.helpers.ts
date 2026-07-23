@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
+
 const pdfParse = require('pdf-parse');
 const { fromBuffer } = require('pdf2pic');
 const jimpLib = require('jimp');
@@ -10,7 +10,6 @@ const jsQR: (
   height: number,
   options?: { inversionAttempts?: string }
 ) => { data: string } | null = jsQRLib.default ?? jsQRLib;
-/* eslint-enable @typescript-eslint/no-require-imports */
 
 import { CamposRut } from '../interfaces/rut-validacion.interface';
 
@@ -62,23 +61,17 @@ export function extraerCamposRut(texto: string): CamposRut {
   let dv = '';
 
   const p1 = texto.match(/(\d{7,12})\s*\nImpuestos\s+de/i);
-  console.log('[NIT] p1 (antes de Impuestos de):', p1?.[1] ?? 'NO');
 
   const p2 = texto.match(/(\d\s){8,11}\d/);
-  console.log('[NIT] p2 (digitos con espacios):', p2?.[0] ?? 'NO');
 
   const todosNums = texto.match(/\d[\d\s]{8,20}\d/g);
-  console.log('[NIT] secuencias numericas largas:', todosNums);
 
   const idxImp = texto.indexOf('Impuestos de');
   if (idxImp > -1) {
-    console.log('[NIT] contexto Impuestos de:', JSON.stringify(texto.slice(idxImp - 50, idxImp + 50)));
   }
 
   const idx901 = texto.indexOf('9 0 1');
-  console.log('[NIT] idx "9 0 1":', idx901);
   if (idx901 > -1) {
-    console.log('[NIT] contexto 9 0 1:', JSON.stringify(texto.slice(idx901 - 20, idx901 + 40)));
   }
 
 if (p1) {
@@ -99,11 +92,8 @@ if (p1) {
       const joined = p3[0].replace(/\s/g, '');
       nit = joined.slice(0, -1);
       dv = joined.slice(-1);
-      console.log('[NIT] p3 encontrado:', nit, 'DV:', dv);
     }
   }
-
-  console.log('[NIT] resultado final — nit:', nit, 'dv:', dv);
 
   const razonMatch = texto.match(/Persona jur[ií]dica\s*\n\s*\d+\s*\n+\s*([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s]{2,80})\s*\n/i);
   const razonSocial = razonMatch ? razonMatch[1].trim() : buscarPatronSimple(texto, 'Razón social');
@@ -158,7 +148,7 @@ export async function leerQr(buffer: Buffer): Promise<string | null> {
     );
     if (urlMatch) return urlMatch[0];
   } catch {
-    // continúa
+
   }
 
   try {
@@ -185,7 +175,6 @@ export async function leerQr(buffer: Buffer): Promise<string | null> {
 
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.warn('[leerQr] Error:', msg);
     return null;
   }
 }

@@ -23,8 +23,6 @@ private readonly profileRepo: Repository<EmpresaProfileEntity
 >,
   ) {}
 
-  // ─── Sectores con conteo real de empresas con productos ──────────────────────
-
   async getSectores() {
     const sectores = await this.sectorRepo.find({
       where: { activo: true },
@@ -33,7 +31,7 @@ private readonly profileRepo: Repository<EmpresaProfileEntity
 
     const result = await Promise.all(
       sectores.map(async (s) => {
-        // Contar empresas distintas que tengan al menos 1 producto publicado en este sector
+
         const { count } = await this.productRepo
           .createQueryBuilder('p')
           .innerJoin('product_sectores', 'ps', 'ps.productId = p.id')
@@ -50,13 +48,10 @@ private readonly profileRepo: Repository<EmpresaProfileEntity
     return result;
   }
 
-  // ─── Empresas por sector (solo las que tienen productos en ese sector) ────────
-
   async getEmpresasBySector(slug: string) {
     const sector = await this.sectorRepo.findOne({ where: { slug, activo: true } });
     if (!sector) throw new NotFoundException('Sector no encontrado');
 
-    // Traer empresaIds distintos que tengan productos publicados en este sector
     const rows = await this.productRepo
       .createQueryBuilder('p')
       .innerJoin('product_sectores', 'ps', 'ps.productId = p.id')
@@ -78,8 +73,6 @@ private readonly profileRepo: Repository<EmpresaProfileEntity
     return { sector, empresas };
   }
 
-  // ─── Perfil público de empresa ────────────────────────────────────────────────
-
   async getEmpresa(id: string) {
     const empresa = await this.empresaRepo.findOne({
       where: { id },
@@ -89,13 +82,9 @@ private readonly profileRepo: Repository<EmpresaProfileEntity
     return empresa;
   }
 
-  // ─── Productos de empresa (con filtro opcional de sector) ─────────────────────
-
   async getProductosEmpresa(empresaId: string, params: any) {
     const { page = 1, limit = 12, q, estado = 'published', sectorSlug, categoryId, subcategoryId } = params;
 
-    // Sector se resuelve una sola vez y se reutiliza tanto en la consulta paginada
-    // como en la de conteo por categoría, para que ambas apliquen el mismo filtro.
     const sector = sectorSlug
       ? await this.sectorRepo.findOne({ where: { slug: sectorSlug, activo: true } })
       : null;
@@ -125,8 +114,6 @@ private readonly profileRepo: Repository<EmpresaProfileEntity
       .leftJoinAndSelect('p.imagenes', 'imagenes');
     applyFilters(qb);
 
-    // Filtro de categoría/subcategoría — se aplica solo a los resultados paginados,
-    // no al conteo del panel (así el panel de filtros no se reduce al elegir una categoría).
     if (categoryId) qb.andWhere('p.categoryId = :categoryId', { categoryId });
     if (subcategoryId) qb.andWhere('p.subcategoryId = :subcategoryId', { subcategoryId });
 
@@ -136,8 +123,6 @@ private readonly profileRepo: Repository<EmpresaProfileEntity
       .orderBy('p.createdAt', 'DESC')
       .getManyAndCount();
 
-    // Conteo de categorías/subcategorías sobre TODO el catálogo filtrado (no solo la página
-    // actual), para que el panel de filtros no cambie al paginar.
     const catQb = this.productRepo.createQueryBuilder('p')
       .leftJoin('p.category', 'category')
       .leftJoin('p.subcategory', 'subcategory')
@@ -172,8 +157,6 @@ private readonly profileRepo: Repository<EmpresaProfileEntity
 
     return { data, total, page, limit, pages: Math.ceil(total / limit), categorias };
   }
-
-  // ─── Búsqueda global de productos ────────────────────────────────────────────
 
   async searchProductos(params: any) {
     const { page = 1, limit = 16, q, estado = 'published' } = params;
@@ -226,8 +209,6 @@ private readonly profileRepo: Repository<EmpresaProfileEntity
 
     return { data, total, page: +page, limit: +limit, pages: Math.ceil(total / +limit) };
   }
-
-  // ─── Detalle de producto ──────────────────────────────────────────────────────
 
   async getProducto(id: string) {
     const product = await this.productRepo.findOne({
