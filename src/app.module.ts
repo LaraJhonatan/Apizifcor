@@ -29,6 +29,7 @@ import { EmpresaSector } from './sectores/entities/empresa-sector.entity';
 
 import { UsuarioEntity } from './users/entities/user.entity';
 import { Cart } from './cart/entities/cart.entity';
+import { CartItem } from './cart/entities/cart-item.entity';
 import { Order } from './orders/entities/order.entity';
 import { Review } from './reviews/entities/review.entity';
 import { Quote } from './quotes/entities/quote.entity';
@@ -67,6 +68,7 @@ import { SeccionDestacadoEntity } from './destacados/entities/seccion-destacado.
         EmpresaSector,
         UsuarioEntity,
         Cart,
+        CartItem,
         Order,
         Review,
         Quote,

@@ -55,6 +55,17 @@ export class Product {
 
   @Column({ nullable: true, length: 20 })
   moneda: string;
+
+  // true  → se puede pagar en línea (PSE) desde el carrito
+  // false → requiere cotización (se gestiona por WhatsApp/chat)
+  @Column({ default: true })
+  pagableEnLinea: boolean;
+
+  // Inventario del producto simple (sin variantes). null → no se controla stock.
+  // Si el producto tiene variantes, el stock efectivo es la suma de las variantes.
+  @Column({ type: 'int', nullable: true })
+  stock: number;
+
 @Column({ nullable: true, length: 400 })
 slug: string;
   @Column({ type: 'varchar', length: 20, default: ProductStatus.DRAFT })

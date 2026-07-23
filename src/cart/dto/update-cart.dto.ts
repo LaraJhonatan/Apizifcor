@@ -1,4 +1,9 @@
-import { PartialType } from '@nestjs/swagger';
-import { CreateCartDto } from './create-cart.dto';
+import { IsInt, Min, Max } from 'class-validator';
 
-export class UpdateCartDto extends PartialType(CreateCartDto) {}
+/** Cambiar la cantidad de una línea del carrito */
+export class UpdateCartItemDto {
+  @IsInt()
+  @Min(0)
+  @Max(1000)
+  cantidad: number;
+}

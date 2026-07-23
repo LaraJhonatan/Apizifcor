@@ -51,6 +51,8 @@ async create(dto: CreateProductDto, userId?: string): Promise<Product> {
     marca:         dto.marca,
     precioBase:    dto.precioBase,
     moneda:        dto.moneda,
+    pagableEnLinea: dto.pagableEnLinea ?? true,
+    stock:         dto.stock ?? null,
     estado:        dto.estado,
     createdBy:     userId,
     updatedBy:     userId,
@@ -149,6 +151,12 @@ async create(dto: CreateProductDto, userId?: string): Promise<Product> {
   async update(id: string, dto: Partial<CreateProductDto>, empresaId?: string, userId?: string): Promise<Product> {
   const product = await this.getById(id, empresaId);
 
+  // Seguridad: el update nunca puede reasignar la empresa dueña ni el id del producto.
+  // (el DTO hereda estos campos, pero se ignoran para evitar tomar productos de otra empresa)
+  const { empresaId: _ignoreEmpresaId, id: _ignoreId, ...safeDto } = dto as Record<string, unknown>;
+  void _ignoreEmpresaId;
+  void _ignoreId;
+
   // Regenerar slug solo si cambió el nombre
   const slug = dto.nombre && dto.nombre !== product.nombre
     ? await this.generarSlugProducto(dto.nombre, id)
@@ -156,7 +164,7 @@ async create(dto: CreateProductDto, userId?: string): Promise<Product> {
 
   await this.productRepo.save({
     ...product,
-    ...dto,
+    ...safeDto,
     slug,                          // ← nuevo
     updatedBy: userId,
     atributos: undefined,

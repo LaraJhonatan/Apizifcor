@@ -1,6 +1,7 @@
 import {
   IsString, IsOptional, IsEnum,
   IsNumber, IsArray, ValidateNested, IsBoolean, IsNotEmpty,
+  IsInt, Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ProductStatus } from '../../common/enums/product-status.enum';
@@ -89,6 +90,15 @@ export class CreateProductDto {
   @IsOptional()
   @IsString()
   moneda?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  pagableEnLinea?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  stock?: number;
 
   @IsOptional()
   @IsEnum(ProductStatus)
