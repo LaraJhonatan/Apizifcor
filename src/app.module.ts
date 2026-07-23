@@ -31,6 +31,7 @@ import { UsuarioEntity } from './users/entities/user.entity';
 import { Cart } from './cart/entities/cart.entity';
 import { CartItem } from './cart/entities/cart-item.entity';
 import { Order } from './orders/entities/order.entity';
+import { OrderItem } from './orders/entities/order-item.entity';
 import { Review } from './reviews/entities/review.entity';
 import { Quote } from './quotes/entities/quote.entity';
 import { Contact } from './contact/entities/contact.entity';
@@ -70,6 +71,7 @@ import { SeccionDestacadoEntity } from './destacados/entities/seccion-destacado.
         Cart,
         CartItem,
         Order,
+        OrderItem,
         Review,
         Quote,
         Contact,
