@@ -92,27 +92,43 @@ private readonly profileRepo: Repository<EmpresaProfileEntity
   // ─── Productos de empresa (con filtro opcional de sector) ─────────────────────
 
   async getProductosEmpresa(empresaId: string, params: any) {
-    const { page = 1, limit = 12, q, estado = 'published', sectorSlug } = params;
+    const { page = 1, limit = 12, q, estado = 'published', sectorSlug, categoryId, subcategoryId } = params;
+
+    // Sector se resuelve una sola vez y se reutiliza tanto en la consulta paginada
+    // como en la de conteo por categoría, para que ambas apliquen el mismo filtro.
+    const sector = sectorSlug
+      ? await this.sectorRepo.findOne({ where: { slug: sectorSlug, activo: true } })
+      : null;
+
+    const applyFilters = (builder: ReturnType<Repository<Product>['createQueryBuilder']>) => {
+      builder
+        .where('p.empresaId = :empresaId', { empresaId })
+        .andWhere('p.estado = :estado', { estado })
+        .andWhere('p.eliminado = :eliminado', { eliminado: false });
+
+      if (sector) {
+        builder
+          .innerJoin('product_sectores', 'ps', 'ps.productId = p.id')
+          .andWhere('ps.sectorId = :sectorId', { sectorId: sector.id });
+      }
+
+      if (q) {
+        builder.andWhere('(p.nombre LIKE :q OR p.descripcion LIKE :q)', { q: `%${q}%` });
+      }
+
+      return builder;
+    };
 
     const qb = this.productRepo.createQueryBuilder('p')
       .leftJoinAndSelect('p.category', 'category')
-      .leftJoinAndSelect('p.imagenes', 'imagenes')
-      .where('p.empresaId = :empresaId', { empresaId })
-      .andWhere('p.estado = :estado', { estado })
-      .andWhere('p.eliminado = :eliminado', { eliminado: false });
+      .leftJoinAndSelect('p.subcategory', 'subcategory')
+      .leftJoinAndSelect('p.imagenes', 'imagenes');
+    applyFilters(qb);
 
-    // Si viene sectorSlug, filtrar solo productos de ese sector
-    if (sectorSlug) {
-      const sector = await this.sectorRepo.findOne({ where: { slug: sectorSlug, activo: true } });
-      if (sector) {
-        qb.innerJoin('product_sectores', 'ps', 'ps.productId = p.id')
-          .andWhere('ps.sectorId = :sectorId', { sectorId: sector.id });
-      }
-    }
-
-    if (q) {
-      qb.andWhere('(p.nombre LIKE :q OR p.descripcion LIKE :q)', { q: `%${q}%` });
-    }
+    // Filtro de categoría/subcategoría — se aplica solo a los resultados paginados,
+    // no al conteo del panel (así el panel de filtros no se reduce al elegir una categoría).
+    if (categoryId) qb.andWhere('p.categoryId = :categoryId', { categoryId });
+    if (subcategoryId) qb.andWhere('p.subcategoryId = :subcategoryId', { subcategoryId });
 
     const [data, total] = await qb
       .skip((page - 1) * limit)
@@ -120,7 +136,41 @@ private readonly profileRepo: Repository<EmpresaProfileEntity
       .orderBy('p.createdAt', 'DESC')
       .getManyAndCount();
 
-    return { data, total, page, limit, pages: Math.ceil(total / limit) };
+    // Conteo de categorías/subcategorías sobre TODO el catálogo filtrado (no solo la página
+    // actual), para que el panel de filtros no cambie al paginar.
+    const catQb = this.productRepo.createQueryBuilder('p')
+      .leftJoin('p.category', 'category')
+      .leftJoin('p.subcategory', 'subcategory')
+      .select('category.id', 'catId')
+      .addSelect('category.nombre', 'catNombre')
+      .addSelect('subcategory.id', 'subId')
+      .addSelect('subcategory.nombre', 'subNombre');
+    applyFilters(catQb);
+
+    const rows = await catQb.getRawMany();
+    const catMap = new Map<string, { id: string; nombre: string; count: number; subsMap: Map<string, { id: string; nombre: string; count: number }> }>();
+    for (const r of rows) {
+      if (!r.catId) continue;
+      if (!catMap.has(r.catId)) {
+        catMap.set(r.catId, { id: r.catId, nombre: r.catNombre, count: 0, subsMap: new Map() });
+      }
+      const entry = catMap.get(r.catId);
+      entry.count++;
+      if (r.subId) {
+        if (!entry.subsMap.has(r.subId)) {
+          entry.subsMap.set(r.subId, { id: r.subId, nombre: r.subNombre, count: 0 });
+        }
+        entry.subsMap.get(r.subId).count++;
+      }
+    }
+    const categorias = Array.from(catMap.values()).map((c) => ({
+      id: c.id,
+      nombre: c.nombre,
+      count: c.count,
+      subs: Array.from(c.subsMap.values()),
+    }));
+
+    return { data, total, page, limit, pages: Math.ceil(total / limit), categorias };
   }
 
   // ─── Búsqueda global de productos ────────────────────────────────────────────
