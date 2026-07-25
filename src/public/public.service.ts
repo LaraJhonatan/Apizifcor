@@ -215,7 +215,7 @@ private readonly profileRepo: Repository<EmpresaProfileEntity
       where: { id, eliminado: false, estado: 'published' as any },
       relations: [
         'empresa', 'empresa.profile',
-        'category',
+        'category', 'subcategory',
         'atributos', 'atributos.atributo',
         'imagenes',
         'variantes', 'variantes.atributos', 'variantes.atributos.atributo',
@@ -236,7 +236,7 @@ async getProductoPorSlug(slug: string) {
     where: { slug, eliminado: false, estado: 'published' as any },
     relations: [
       'empresa', 'empresa.profile',
-      'category',
+      'category', 'subcategory',
       'atributos', 'atributos.atributo',
       'imagenes',
       'variantes', 'variantes.atributos', 'variantes.atributos.atributo',
