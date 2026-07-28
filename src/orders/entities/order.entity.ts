@@ -9,15 +9,38 @@ import {
 } from 'typeorm';
 import { OrderItem } from './order-item.entity';
 import { OrderStatus } from '../../common/enums/order-status.enum';
+import { OrderOrigin } from '../../common/enums/order-origin.enum';
 
 @Entity('orders')
 export class Order {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({ type: 'varchar', length: 10, default: OrderOrigin.WOMPI })
+  origen: OrderOrigin;
+
+  /** Solo para órdenes manuales: la empresa que la creó desde el dashboard. */
   @Index()
-  @Column({ type: 'int' })
+  @Column({ type: 'uniqueidentifier', nullable: true })
+  empresaId: string;
+
+  /** Nulo cuando el comprador no tiene cuenta ZIFCOR (venta manual a un tercero). */
+  @Index()
+  @Column({ type: 'int', nullable: true })
   usuarioId: number;
+
+  /** Datos del comprador para órdenes manuales sin cuenta (o como respaldo siempre). */
+  @Column({ nullable: true, length: 200 })
+  compradorNombre: string;
+
+  @Column({ nullable: true, length: 40 })
+  compradorDocumento: string;
+
+  @Column({ nullable: true, length: 200 })
+  compradorEmail: string;
+
+  @Column({ nullable: true, length: 30 })
+  compradorTelefono: string;
 
   @Index({ unique: true })
   @Column({ length: 80 })
@@ -38,19 +61,26 @@ export class Order {
   @Column({ nullable: true, length: 50 })
   wompiMetodoPago: string;
 
-  @Column({ length: 200 })
+  /** Método de pago para órdenes manuales, ej. "Transferencia bancaria". */
+  @Column({ nullable: true, length: 50 })
+  medioPagoManual: string;
+
+  @Column({ type: 'datetime2', nullable: true })
+  fechaPago: Date;
+
+  @Column({ nullable: true, length: 200 })
   envioNombreCompleto: string;
 
-  @Column({ length: 30 })
+  @Column({ nullable: true, length: 30 })
   envioTelefono: string;
 
-  @Column({ length: 300 })
+  @Column({ nullable: true, length: 300 })
   envioDireccion: string;
 
-  @Column({ length: 100 })
+  @Column({ nullable: true, length: 100 })
   envioCiudad: string;
 
-  @Column({ length: 100 })
+  @Column({ nullable: true, length: 100 })
   envioDepartamento: string;
 
   @Column({ nullable: true, length: 20 })
