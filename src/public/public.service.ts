@@ -159,7 +159,7 @@ private readonly profileRepo: Repository<EmpresaProfileEntity
   }
 
   async searchProductos(params: any) {
-    const { page = 1, limit = 16, q, estado = 'published' } = params;
+    const { page = 1, limit = 16, q, categoryId, subcategoryId, estado = 'published' } = params;
 
     const qb = this.productRepo.createQueryBuilder('p')
       .leftJoinAndSelect('p.category', 'category')
@@ -169,6 +169,11 @@ private readonly profileRepo: Repository<EmpresaProfileEntity
       .leftJoin('product_attribute_values', 'attrVal', 'attrVal.productId = p.id')
       .where('p.estado = :estado', { estado })
       .andWhere('p.eliminado = :eliminado', { eliminado: false });
+
+    // Usado por la búsqueda por imagen: filtra directo por categoría/subcategoría
+    // reconocida, en vez de comparar el nombre de la categoría como texto libre.
+    if (subcategoryId) qb.andWhere('p.subcategoryId = :subcategoryId', { subcategoryId });
+    else if (categoryId) qb.andWhere('p.categoryId = :categoryId', { categoryId });
 
     if (q) {
       const words = q.trim().split(/\s+/).filter((w: string) => w.length >= 2);
