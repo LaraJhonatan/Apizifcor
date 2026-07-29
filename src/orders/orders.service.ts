@@ -423,7 +423,11 @@ export class OrdersService {
 
     const order = await this.orderRepo.findOne({ where, relations: ['items'] });
     if (!order) throw new NotFoundException('Orden no encontrada.');
-    if (order.estado !== OrderStatus.APPROVED) {
+
+    // Las órdenes manuales sin pagar sí se pueden descargar (como cotización);
+    // las de Wompi solo una vez aprobadas (antes de eso no hay nada que mostrar).
+    const esCotizacionDescargable = order.origen === OrderOrigin.MANUAL;
+    if (order.estado !== OrderStatus.APPROVED && !esCotizacionDescargable) {
       throw new BadRequestException('El comprobante solo está disponible para órdenes pagadas.');
     }
     return order;

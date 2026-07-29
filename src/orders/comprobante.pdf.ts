@@ -8,6 +8,7 @@ const LOGO_PATH = path.join(__dirname, 'assets', 'IconoZ.png');
 const BRAND = '#1D4ED8';
 const BRAND_LIGHT = '#EFF6FF';
 const PAID_GREEN = '#16A34A';
+const QUOTE_AMBER = '#D97706';
 const TEXT_GRAY = '#64748B';
 const BORDER_GRAY = '#E2E8F0';
 
@@ -43,26 +44,32 @@ export function buildComprobantePdf(order: Order, comprador: CompradorInfo): Pro
     doc.on('error', reject);
 
     const referencia = order.id.slice(0, 8).toUpperCase();
+    const pagado = order.estado === 'approved';
 
     // ── Encabezado de marca ──
     const logoWidth = 150;
     doc.image(LOGO_PATH, MARGIN, 36, { width: logoWidth });
 
-    const badgeW = 92;
+    const badgeColor = pagado ? PAID_GREEN : QUOTE_AMBER;
+    const badgeText = pagado ? '✓ PAGADO' : 'COTIZACIÓN';
+    const badgeW = pagado ? 92 : 108;
     const badgeH = 26;
-    doc.roundedRect(PAGE_WIDTH - MARGIN - badgeW, 46, badgeW, badgeH, 13).fill(PAID_GREEN);
+    doc.roundedRect(PAGE_WIDTH - MARGIN - badgeW, 46, badgeW, badgeH, 13).fill(badgeColor);
     doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(10.5)
-      .text('✓ PAGADO', PAGE_WIDTH - MARGIN - badgeW, 53, { width: badgeW, align: 'center' });
+      .text(badgeText, PAGE_WIDTH - MARGIN - badgeW, 53, { width: badgeW, align: 'center' });
 
-    doc.rect(0, 128, PAGE_WIDTH, 26).fill(BRAND);
+    doc.rect(0, 128, PAGE_WIDTH, 26).fill(pagado ? BRAND : QUOTE_AMBER);
     doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(11)
-      .text('Comprobante de compra', MARGIN, 136);
+      .text(pagado ? 'Comprobante de compra' : 'Cotización', MARGIN, 136);
 
     doc.y = 174;
 
     doc.fontSize(8.5).font('Helvetica').fillColor(TEXT_GRAY).text(
-      'Este documento es un comprobante de compra generado por ZIFCOR y no constituye una factura ' +
-      'electrónica de venta para efectos tributarios ante la DIAN.',
+      pagado
+        ? 'Este documento es un comprobante de compra generado por ZIFCOR y no constituye una factura ' +
+          'electrónica de venta para efectos tributarios ante la DIAN.'
+        : 'Este documento es una cotización generada por ZIFCOR. Los valores y la disponibilidad están ' +
+          'sujetos a cambios hasta que se confirme el pago — no representa un cobro realizado ni una factura de venta.',
       MARGIN, doc.y, { width: CONTENT_WIDTH },
     );
     doc.moveDown(1);
@@ -131,8 +138,8 @@ export function buildComprobantePdf(order: Order, comprador: CompradorInfo): Pro
     const totalBoxY = doc.y;
     doc.roundedRect(totalBoxX, totalBoxY, totalBoxW, totalBoxH, 6).fill(BRAND_LIGHT);
     doc.fillColor(TEXT_GRAY).font('Helvetica').fontSize(9)
-      .text('TOTAL PAGADO', totalBoxX + 16, totalBoxY + 8);
-    doc.fillColor(BRAND).font('Helvetica-Bold').fontSize(15)
+      .text(pagado ? 'TOTAL PAGADO' : 'TOTAL COTIZADO', totalBoxX + 16, totalBoxY + 8);
+    doc.fillColor(pagado ? BRAND : QUOTE_AMBER).font('Helvetica-Bold').fontSize(15)
       .text(formatMoney(Number(order.subtotal), order.moneda), totalBoxX + 16, totalBoxY + 19, {
         width: totalBoxW - 32, align: 'right',
       });
