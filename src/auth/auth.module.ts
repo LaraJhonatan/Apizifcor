@@ -19,6 +19,7 @@ import { CuentaEmpresaEntity } from './entities/cuenta-empresa.entity';
 import { OtpEntity } from './entities/otp.entity';
 import { EmpresaProfileEntity } from './entities/empresa-profile.entity';
 import { UsuarioEntity } from '../users/entities/user.entity';
+import { PasswordResetEntity } from './entities/password-reset.entity';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { UsuarioEntity } from '../users/entities/user.entity';
       OtpEntity,
       EmpresaProfileEntity,
       UsuarioEntity,
+      PasswordResetEntity,
     ]),
     MulterModule.register({
       storage: memoryStorage(),

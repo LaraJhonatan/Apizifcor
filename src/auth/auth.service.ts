@@ -11,14 +11,16 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThan } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { randomInt } from 'crypto';
+import { randomInt, randomBytes, createHash } from 'crypto';
 import { UpdateEmpresaProfileDto } from './dto/update-empresa-profile.dto';
 import { DianService } from './services/dian.service';
 import { MailService } from './services/mail.service';
+import { ConfigService } from '@nestjs/config';
 
 import { EmpresaEntity } from './entities/empresa.entity';
 import { CuentaEmpresaEntity } from './entities/cuenta-empresa.entity';
 import { OtpEntity } from './entities/otp.entity';
+import { PasswordResetEntity } from './entities/password-reset.entity';
 
 import { ConsultarNitDto } from './dto/consultar-nit.dto';
 import { ValidarRutDto } from './dto/validar-rut.dto';
@@ -26,6 +28,8 @@ import { EnviarCodigoDto } from './dto/enviar-codigo.dto';
 import { VerificarCodigoDto } from './dto/verificar-codigo.dto';
 import { CrearCuentaEmpresaDto } from './dto/crear-cuenta-empresa.dto';
 import { LoginDto } from './dto/login.dto';
+import { SolicitarResetPasswordDto } from './dto/solicitar-reset-password.dto';
+import { RestablecerPasswordDto } from './dto/restablecer-password.dto';
 import { EmpresaProfileEntity } from './entities/empresa-profile.entity';
 import { UsuarioEntity } from '../users/entities/user.entity';
 import {
@@ -43,6 +47,7 @@ import { slugify, slugifyUnique } from '../common/utils/slugify';
 
 const OTP_TTL_MINUTES = 10;
 const BCRYPT_ROUNDS = 12;
+const RESET_TOKEN_TTL_MINUTES = 30;
 
 @Injectable()
 export class AuthService {
@@ -64,9 +69,13 @@ export class AuthService {
     @InjectRepository(UsuarioEntity)
     private readonly usuarioRepo: Repository<UsuarioEntity>,
 
+    @InjectRepository(PasswordResetEntity)
+    private readonly passwordResetRepo: Repository<PasswordResetEntity>,
+
     private readonly dianService: DianService,
     private readonly mailService: MailService,
     private readonly jwtService: JwtService,
+    private readonly config: ConfigService,
   ) {}
 
   private async generarSlugEmpresa(nombre: string, excludeId?: string): Promise<string> {
@@ -443,6 +452,93 @@ export class AuthService {
         logoUrl: empresa.profile?.logoUrl || null,
       },
     };
+  }
+
+  private async buscarEmpresaPorIdentificador(identificador: string): Promise<EmpresaEntity | null> {
+    if (/^\d+$/.test(identificador)) {
+      return this.empresaRepo.findOne({ where: { nit: identificador } });
+    }
+    return this.empresaRepo.findOne({ where: { correo: identificador.toLowerCase() } });
+  }
+
+  async solicitarResetPassword(dto: SolicitarResetPasswordDto) {
+    const identificador = dto.identificador.trim();
+    const empresa = await this.buscarEmpresaPorIdentificador(identificador);
+
+    if (!empresa || !empresa.correo) {
+      throw new NotFoundException('No encontramos una cuenta con ese NIT o correo.');
+    }
+
+    const cuenta = await this.cuentaRepo.findOne({
+      where: { empresa: { id: empresa.id }, activo: true },
+      relations: ['empresa'],
+    });
+    if (!cuenta) {
+      throw new NotFoundException('No encontramos una cuenta con ese NIT o correo.');
+    }
+
+    await this.passwordResetRepo.update({ empresaId: empresa.id, usado: false }, { usado: true });
+
+    const tokenPlano = randomBytes(32).toString('hex');
+    const tokenHash = createHash('sha256').update(tokenPlano).digest('hex');
+
+    const expiraEn = new Date();
+    expiraEn.setMinutes(expiraEn.getMinutes() + RESET_TOKEN_TTL_MINUTES);
+
+    const reset = this.passwordResetRepo.create({ empresaId: empresa.id, tokenHash, expiraEn, usado: false });
+    await this.passwordResetRepo.save(reset);
+
+    const frontendUrl = this.config.get<string>('FRONTEND_URL');
+    const resetLink = `${frontendUrl}/auth/restablecer-password?token=${tokenPlano}`;
+
+    try {
+      await this.mailService.enviarRecuperacion(empresa.correo, empresa.razonSocial, resetLink);
+    } catch (err) {
+      this.logger.error(`Error enviando correo de recuperación a ${empresa.correo}`, err);
+      throw new InternalServerErrorException(
+        'Error al enviar el correo de recuperación. Intenta de nuevo.',
+      );
+    }
+
+    return {
+      ok: true,
+      mensaje: `Enviamos instrucciones a ${this.enmascararEmail(empresa.correo)}`,
+    };
+  }
+
+  async restablecerPassword(dto: RestablecerPasswordDto) {
+    const tokenHash = createHash('sha256').update(dto.token).digest('hex');
+
+    const reset = await this.passwordResetRepo.findOne({
+      where: {
+        tokenHash,
+        usado: false,
+        expiraEn: MoreThan(new Date()),
+      },
+      order: { createdAt: 'DESC' },
+    });
+
+    if (!reset) {
+      throw new BadRequestException('El enlace ha expirado o ya fue utilizado. Solicita uno nuevo.');
+    }
+
+    this.validarFortalezaPassword(dto.password);
+
+    const cuenta = await this.cuentaRepo.findOne({
+      where: { empresa: { id: reset.empresaId } },
+      relations: ['empresa'],
+    });
+    if (!cuenta) {
+      throw new NotFoundException('No encontramos la cuenta asociada a este enlace.');
+    }
+
+    cuenta.passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
+    await this.cuentaRepo.save(cuenta);
+
+    reset.usado = true;
+    await this.passwordResetRepo.save(reset);
+
+    return { ok: true, mensaje: 'Contraseña actualizada correctamente.' };
   }
 
   async loginConGoogle(googleUser: {

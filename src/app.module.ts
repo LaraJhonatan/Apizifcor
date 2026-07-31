@@ -23,6 +23,7 @@ import { QuoteRequestsModule } from './quote-requests/quote-requests.module';
 import { EmpresaEntity } from './auth/entities/empresa.entity';
 import { CuentaEmpresaEntity } from './auth/entities/cuenta-empresa.entity';
 import { OtpEntity } from './auth/entities/otp.entity';
+import { PasswordResetEntity } from './auth/entities/password-reset.entity';
 import { EmpresaProfileEntity } from './auth/entities/empresa-profile.entity';
 import { SectorEntity } from './sectores/entities/sector.entity';
 import { ProductSector } from './sectores/entities/product-sector.entity';
@@ -66,6 +67,7 @@ import { QuoteRequestFile } from './quote-requests/entities/quote-request-file.e
         EmpresaEntity,
         CuentaEmpresaEntity,
         OtpEntity,
+        PasswordResetEntity,
         EmpresaProfileEntity,
         SectorEntity,
         ProductSector,

@@ -35,6 +35,8 @@ import { EnviarCodigoDto } from './dto/enviar-codigo.dto';
 import { VerificarCodigoDto } from './dto/verificar-codigo.dto';
 import { CrearCuentaEmpresaDto } from './dto/crear-cuenta-empresa.dto';
 import { LoginDto } from './dto/login.dto';
+import { SolicitarResetPasswordDto } from './dto/solicitar-reset-password.dto';
+import { RestablecerPasswordDto } from './dto/restablecer-password.dto';
 
 @ApiTags('Autenticación Empresarial')
 @Controller('auth')
@@ -110,6 +112,20 @@ export class AuthController {
   @ApiOperation({ summary: 'Inicia sesión con NIT o correo + contraseña' })
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
+  }
+
+  @Post('olvide-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Solicita el envío de un correo para restablecer la contraseña' })
+  solicitarResetPassword(@Body() dto: SolicitarResetPasswordDto) {
+    return this.authService.solicitarResetPassword(dto);
+  }
+
+  @Post('restablecer-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Restablece la contraseña usando el token recibido por correo' })
+  restablecerPassword(@Body() dto: RestablecerPasswordDto) {
+    return this.authService.restablecerPassword(dto);
   }
 
   @Get('google/url')
