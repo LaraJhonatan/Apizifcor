@@ -1,10 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { MoreThan, Repository } from 'typeorm';
 import { ClickEventEntity, ClickEventTipo } from './entities/click-event.entity';
 import { Product } from '../products/entities/product.entity';
 
 const VENTANA_DIAS_TENDENCIA = 30;
+const COOLDOWN_MINUTOS_CLICK = 30;
+const COOLDOWN_MINUTOS_BUSQUEDA = 5;
 
 @Injectable()
 export class AnalyticsService {
@@ -15,23 +17,60 @@ export class AnalyticsService {
     private readonly productRepo: Repository<Product>,
   ) {}
 
-  async registrarClickProducto(productId: string) {
+  private async yaRegistradoRecientemente(
+    where: Record<string, unknown>,
+    cooldownMinutos: number,
+  ): Promise<boolean> {
+    const desde = new Date();
+    desde.setMinutes(desde.getMinutes() - cooldownMinutos);
+
+    const existente = await this.clickRepo.findOne({
+      where: { ...where, createdAt: MoreThan(desde) } as any,
+    });
+    return !!existente;
+  }
+
+  async registrarClickProducto(productId: string, ip: string | null) {
+    if (ip) {
+      const duplicado = await this.yaRegistradoRecientemente(
+        { tipo: ClickEventTipo.PRODUCTO, productId, ip },
+        COOLDOWN_MINUTOS_CLICK,
+      );
+      if (duplicado) return { ok: true };
+    }
+
     await this.clickRepo.save(
-      this.clickRepo.create({ tipo: ClickEventTipo.PRODUCTO, productId }),
+      this.clickRepo.create({ tipo: ClickEventTipo.PRODUCTO, productId, ip: ip || undefined }),
     );
     return { ok: true };
   }
 
-  async registrarClickEmpresa(empresaId: string) {
+  async registrarClickEmpresa(empresaId: string, ip: string | null) {
+    if (ip) {
+      const duplicado = await this.yaRegistradoRecientemente(
+        { tipo: ClickEventTipo.EMPRESA, empresaId, ip },
+        COOLDOWN_MINUTOS_CLICK,
+      );
+      if (duplicado) return { ok: true };
+    }
+
     await this.clickRepo.save(
-      this.clickRepo.create({ tipo: ClickEventTipo.EMPRESA, empresaId }),
+      this.clickRepo.create({ tipo: ClickEventTipo.EMPRESA, empresaId, ip: ip || undefined }),
     );
     return { ok: true };
   }
 
-  async registrarBusqueda(termino: string) {
+  async registrarBusqueda(termino: string, ip: string | null) {
+    if (ip) {
+      const duplicado = await this.yaRegistradoRecientemente(
+        { tipo: ClickEventTipo.BUSQUEDA, termino, ip },
+        COOLDOWN_MINUTOS_BUSQUEDA,
+      );
+      if (duplicado) return { ok: true };
+    }
+
     await this.clickRepo.save(
-      this.clickRepo.create({ tipo: ClickEventTipo.BUSQUEDA, termino }),
+      this.clickRepo.create({ tipo: ClickEventTipo.BUSQUEDA, termino, ip: ip || undefined }),
     );
     return { ok: true };
   }

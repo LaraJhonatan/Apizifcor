@@ -32,6 +32,10 @@ export class ClickEventEntity {
   @Column({ nullable: true, length: 200 })
   termino: string;
 
+  @Index()
+  @Column({ nullable: true, length: 45 })
+  ip: string;
+
   @CreateDateColumn()
   createdAt: Date;
 }
