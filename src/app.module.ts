@@ -19,6 +19,7 @@ import { PublicModule } from './public/public.module';
 import { SitemapModule } from './sitemap/sitemap.module';
 import { DestacadosModule } from './destacados/destacados.module';
 import { QuoteRequestsModule } from './quote-requests/quote-requests.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 
 import { EmpresaEntity } from './auth/entities/empresa.entity';
 import { CuentaEmpresaEntity } from './auth/entities/cuenta-empresa.entity';
@@ -52,6 +53,7 @@ import { ProductStatusHistory } from './products/entities/product-status-history
 import { SeccionDestacadoEntity } from './destacados/entities/seccion-destacado.entity';
 import { QuoteRequest } from './quote-requests/entities/quote-request.entity';
 import { QuoteRequestFile } from './quote-requests/entities/quote-request-file.entity';
+import { ClickEventEntity } from './analytics/entities/click-event.entity';
 
 @Module({
   imports: [
@@ -93,6 +95,7 @@ import { QuoteRequestFile } from './quote-requests/entities/quote-request-file.e
         SeccionDestacadoEntity,
         QuoteRequest,
         QuoteRequestFile,
+        ClickEventEntity,
       ],
       synchronize: true,
       logging: true,
@@ -117,6 +120,7 @@ import { QuoteRequestFile } from './quote-requests/entities/quote-request-file.e
     SitemapModule,
     DestacadosModule,
     QuoteRequestsModule,
+    AnalyticsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
