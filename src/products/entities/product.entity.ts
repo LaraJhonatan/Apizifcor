@@ -59,6 +59,9 @@ export class Product {
   @Column({ default: true })
   pagableEnLinea: boolean;
 
+  @Column({ default: false })
+  mostrarFormularioCotizacion: boolean;
+
   @Column({ type: 'int', nullable: true })
   stock: number;
 
