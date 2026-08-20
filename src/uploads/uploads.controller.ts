@@ -32,7 +32,9 @@ export class UploadsController {
   constructor(private readonly svc: UploadsService) {}
 
   @Post('image')
-  @ApiOperation({ summary: 'Subir imagen a Cloudinary' })
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Subir imagen a Cloudinary — requiere sesión' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
@@ -62,7 +64,9 @@ export class UploadsController {
 
   @Delete(':publicId')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Eliminar imagen de Cloudinary por publicId' })
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Eliminar imagen de Cloudinary por publicId — requiere sesión' })
   delete(@Param('publicId') publicId: string) {
     return this.svc.deleteImage(publicId);
   }

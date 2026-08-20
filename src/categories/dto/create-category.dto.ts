@@ -1,7 +1,8 @@
-import { IsString, IsOptional, IsNumber, IsUUID } from 'class-validator';
+import { IsString, IsOptional, IsNumber, IsNotEmpty } from 'class-validator';
 
 export class CreateCategoryDto {
   @IsString()
+  @IsNotEmpty({ message: 'El nombre de la categoría es requerido.' })
   nombre: string;
 
   @IsOptional()
@@ -17,6 +18,6 @@ export class CreateCategoryDto {
   orden?: number;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   parentId?: string;
 }

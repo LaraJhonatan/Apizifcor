@@ -1,13 +1,15 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { Product } from './entities/product.entity';
 import { ProductAttributeValue } from './entities/product-attribute-value.entity';
 import { ProductVariant } from './entities/product-variant.entity';
 import { ProductVariantAttributeValue } from './entities/product-variant-attribute-value.entity';
 import { ProductImage } from './entities/product-image.entity';
 import { ProductStatusHistory } from './entities/product-status-history.entity';
+import { ProductSector } from '../sectores/entities/product-sector.entity';
 import { CreateProductDto } from './dto/create-product.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
 import { FilterProductsDto } from './dto/filter-products.dto';
 import { ChangeProductStatusDto } from './dto/change-status.dto';
 import { slugify, slugifyUnique } from '../common/utils/slugify';
@@ -26,6 +28,10 @@ export class ProductsService {
     private readonly imageRepo: Repository<ProductImage>,
     @InjectRepository(ProductStatusHistory)
     private readonly statusHistoryRepo: Repository<ProductStatusHistory>,
+    @InjectRepository(ProductSector)
+    private readonly sectorRepo: Repository<ProductSector>,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
   ) {}
 private async generarSlugProducto(nombre: string, excludeId?: string): Promise<string> {
   return slugifyUnique(nombre, async (slug) => {
@@ -40,60 +46,79 @@ private async generarSlugProducto(nombre: string, excludeId?: string): Promise<s
 async create(dto: CreateProductDto, userId?: string): Promise<Product> {
   const slug = await this.generarSlugProducto(dto.nombre);
 
-  const product = this.productRepo.create({
-    empresaId:     dto.empresaId,
-    categoryId:    dto.categoryId,
-    subcategoryId: dto.subcategoryId,
-    nombre:        dto.nombre,
-    slug,
-    descripcion:   dto.descripcion,
-    sku:           dto.sku,
-    marca:         dto.marca,
-    precioBase:    dto.precioBase,
-    moneda:        dto.moneda,
-    pagableEnLinea: dto.pagableEnLinea ?? true,
-    stock:         dto.stock ?? null,
-    estado:        dto.estado,
-    createdBy:     userId,
-    updatedBy:     userId,
-  });
+  const savedId = await this.dataSource.transaction(async (manager) => {
+    const productRepo = manager.getRepository(Product);
+    const atributoValueRepo = manager.getRepository(ProductAttributeValue);
+    const imageRepo = manager.getRepository(ProductImage);
+    const variantRepo = manager.getRepository(ProductVariant);
+    const variantAttrRepo = manager.getRepository(ProductVariantAttributeValue);
+    const sectorRepo = manager.getRepository(ProductSector);
 
-  const saved = await this.productRepo.save(product);
+    const product = productRepo.create({
+      empresaId:     dto.empresaId,
+      categoryId:    dto.categoryId,
+      subcategoryId: dto.subcategoryId,
+      nombre:        dto.nombre,
+      slug,
+      descripcion:   dto.descripcion,
+      sku:           dto.sku,
+      marca:         dto.marca,
+      precioBase:    dto.precioBase,
+      moneda:        dto.moneda,
+      pagableEnLinea: dto.pagableEnLinea ?? true,
+      mostrarFormularioCotizacion: dto.mostrarFormularioCotizacion ?? false,
+      stock:         dto.stock ?? null,
+      estado:        dto.estado,
+      createdBy:     userId,
+      updatedBy:     userId,
+    });
 
-  if (dto.atributos?.length) {
-    const values = dto.atributos.map(a =>
-      this.atributoValueRepo.create({ productId: saved.id, ...a }),
-    );
-    await this.atributoValueRepo.save(values);
-  }
+    const saved = await productRepo.save(product);
 
-  if (dto.imagenes?.length) {
-    const imgs = dto.imagenes.map(i =>
-      this.imageRepo.create({ productId: saved.id, ...i }),
-    );
-    await this.imageRepo.save(imgs);
-  }
-
-  if (dto.variantes?.length) {
-    for (const v of dto.variantes) {
-      const variant = await this.variantRepo.save(
-        this.variantRepo.create({
-          productId: saved.id,
-          sku:       v.sku,
-          precio:    v.precio,
-          stock:     v.stock,
-        }),
+    if (dto.atributos?.length) {
+      const values = dto.atributos.map(a =>
+        atributoValueRepo.create({ productId: saved.id, ...a }),
       );
-      if (v.atributos?.length) {
-        const vAttrs = v.atributos.map(a =>
-          this.variantAttrRepo.create({ varianteId: variant.id, ...a }),
+      await atributoValueRepo.save(values);
+    }
+
+    if (dto.imagenes?.length) {
+      const imgs = dto.imagenes.map(i =>
+        imageRepo.create({ productId: saved.id, ...i }),
+      );
+      await imageRepo.save(imgs);
+    }
+
+    if (dto.variantes?.length) {
+      for (const v of dto.variantes) {
+        const variant = await variantRepo.save(
+          variantRepo.create({
+            productId: saved.id,
+            sku:       v.sku,
+            precio:    v.precio,
+            stock:     v.stock,
+          }),
         );
-        await this.variantAttrRepo.save(vAttrs);
+        if (v.atributos?.length) {
+          const vAttrs = v.atributos.map(a =>
+            variantAttrRepo.create({ varianteId: variant.id, ...a }),
+          );
+          await variantAttrRepo.save(vAttrs);
+        }
       }
     }
-  }
 
-  return this.getById(saved.id);
+    if (dto.sectorIds?.length) {
+      const sectores = dto.sectorIds.map(sectorId =>
+        sectorRepo.create({ productId: saved.id, sectorId }),
+      );
+      await sectorRepo.save(sectores);
+    }
+
+    return saved.id;
+  });
+
+  return this.getById(savedId);
 }
 
   async findAll(filters: FilterProductsDto & { empresaId?: string }) {
@@ -132,6 +157,7 @@ async create(dto: CreateProductDto, userId?: string): Promise<Product> {
         'atributos', 'atributos.atributo',
         'imagenes',
         'variantes', 'variantes.atributos', 'variantes.atributos.atributo',
+        'sectores', 'sectores.sector',
       ],
     });
 
@@ -144,7 +170,7 @@ async create(dto: CreateProductDto, userId?: string): Promise<Product> {
     return product;
   }
 
-  async update(id: string, dto: Partial<CreateProductDto>, empresaId?: string, userId?: string): Promise<Product> {
+  async update(id: string, dto: UpdateProductDto, empresaId?: string, userId?: string): Promise<Product> {
   const product = await this.getById(id, empresaId);
 
   const { empresaId: _ignoreEmpresaId, id: _ignoreId, ...safeDto } = dto as Record<string, unknown>;
@@ -155,50 +181,70 @@ async create(dto: CreateProductDto, userId?: string): Promise<Product> {
     ? await this.generarSlugProducto(dto.nombre, id)
     : product.slug;
 
-  await this.productRepo.save({
-    ...product,
-    ...safeDto,
-    slug,
-    updatedBy: userId,
-    atributos: undefined,
-    imagenes:  undefined,
-    variantes: undefined,
-  });
+  await this.dataSource.transaction(async (manager) => {
+    const productRepo = manager.getRepository(Product);
+    const atributoValueRepo = manager.getRepository(ProductAttributeValue);
+    const imageRepo = manager.getRepository(ProductImage);
+    const variantRepo = manager.getRepository(ProductVariant);
+    const variantAttrRepo = manager.getRepository(ProductVariantAttributeValue);
+    const sectorRepo = manager.getRepository(ProductSector);
 
-  if (dto.atributos) {
-    await this.atributoValueRepo.delete({ productId: id });
-    const values = dto.atributos.map(a =>
-      this.atributoValueRepo.create({ productId: id, ...a }),
-    );
-    await this.atributoValueRepo.save(values);
-  }
+    await productRepo.save({
+      ...product,
+      ...safeDto,
+      slug,
+      updatedBy: userId,
+      atributos: undefined,
+      imagenes:  undefined,
+      variantes: undefined,
+      sectores:  undefined,
+    });
 
-  if (dto.imagenes) {
-    await this.imageRepo.delete({ productId: id });
-    const imgs = dto.imagenes.map(i =>
-      this.imageRepo.create({ productId: id, ...i }),
-    );
-    await this.imageRepo.save(imgs);
-  }
-
-  if (dto.variantes) {
-    const variantesExistentes = await this.variantRepo.find({ where: { productId: id } });
-    for (const v of variantesExistentes) {
-      await this.variantAttrRepo.delete({ varianteId: v.id });
-    }
-    await this.variantRepo.delete({ productId: id });
-    for (const v of dto.variantes) {
-      const savedVariant = await this.variantRepo.save(
-        this.variantRepo.create({ productId: id, sku: v.sku, precio: v.precio, stock: v.stock }),
+    if (dto.atributos) {
+      await atributoValueRepo.delete({ productId: id });
+      const values = dto.atributos.map(a =>
+        atributoValueRepo.create({ productId: id, ...a }),
       );
-      if (v.atributos?.length) {
-        const vAttrs = v.atributos.map(a =>
-          this.variantAttrRepo.create({ varianteId: savedVariant.id, atributoId: a.atributoId, valor: a.valor }),
+      await atributoValueRepo.save(values);
+    }
+
+    if (dto.imagenes) {
+      await imageRepo.delete({ productId: id });
+      const imgs = dto.imagenes.map(i =>
+        imageRepo.create({ productId: id, ...i }),
+      );
+      await imageRepo.save(imgs);
+    }
+
+    if (dto.variantes) {
+      const variantesExistentes = await variantRepo.find({ where: { productId: id } });
+      for (const v of variantesExistentes) {
+        await variantAttrRepo.delete({ varianteId: v.id });
+      }
+      await variantRepo.delete({ productId: id });
+      for (const v of dto.variantes) {
+        const savedVariant = await variantRepo.save(
+          variantRepo.create({ productId: id, sku: v.sku, precio: v.precio, stock: v.stock }),
         );
-        await this.variantAttrRepo.save(vAttrs);
+        if (v.atributos?.length) {
+          const vAttrs = v.atributos.map(a =>
+            variantAttrRepo.create({ varianteId: savedVariant.id, atributoId: a.atributoId, valor: a.valor }),
+          );
+          await variantAttrRepo.save(vAttrs);
+        }
       }
     }
-  }
+
+    if (dto.sectorIds) {
+      await sectorRepo.delete({ productId: id });
+      if (dto.sectorIds.length) {
+        const sectores = dto.sectorIds.map(sectorId =>
+          sectorRepo.create({ productId: id, sectorId }),
+        );
+        await sectorRepo.save(sectores);
+      }
+    }
+  });
 
   return this.getById(id);
 }

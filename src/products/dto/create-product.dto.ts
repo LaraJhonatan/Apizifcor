@@ -69,6 +69,7 @@ export class CreateProductDto {
   subcategoryId?: string;
 
   @IsString()
+  @IsNotEmpty({ message: 'El nombre del producto es requerido.' })
   nombre: string;
 
   @IsOptional()
@@ -96,6 +97,10 @@ export class CreateProductDto {
   pagableEnLinea?: boolean;
 
   @IsOptional()
+  @IsBoolean()
+  mostrarFormularioCotizacion?: boolean;
+
+  @IsOptional()
   @IsInt()
   @Min(0)
   stock?: number;
@@ -121,4 +126,9 @@ export class CreateProductDto {
   @ValidateNested({ each: true })
   @Type(() => ProductVariantDto)
   variantes?: ProductVariantDto[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  sectorIds?: string[];
 }

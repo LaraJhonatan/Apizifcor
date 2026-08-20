@@ -6,6 +6,7 @@ import { ProductVariant } from './entities/product-variant.entity';
 import { ProductVariantAttributeValue } from './entities/product-variant-attribute-value.entity';
 import { ProductImage } from './entities/product-image.entity';
 import { ProductStatusHistory } from './entities/product-status-history.entity';
+import { ProductSector } from '../sectores/entities/product-sector.entity';
 import { ProductsService } from './products.service';
 import { ProductsController } from './products.controller';
 
@@ -17,6 +18,7 @@ import { ProductsController } from './products.controller';
     ProductVariantAttributeValue,
     ProductImage,
     ProductStatusHistory,
+    ProductSector,
   ])],
   controllers: [ProductsController],
   providers: [ProductsService],

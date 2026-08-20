@@ -7,6 +7,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
 import { FilterProductsDto } from './dto/filter-products.dto';
 import { ChangeProductStatusDto } from './dto/change-status.dto';
 
@@ -20,7 +21,7 @@ export class ProductsController {
   @Post()
   @ApiOperation({ summary: 'Crear producto' })
   create(@Req() req, @Body() dto: CreateProductDto) {
-    return this.svc.create({ ...dto, empresaId: req.user.empresaId }, req.user.sub)
+    return this.svc.create({ ...dto, empresaId: req.user.empresaId }, req.user.cuentaId)
   }
 
   @Get()
@@ -37,20 +38,20 @@ export class ProductsController {
 
   @Patch(':id')
   @ApiOperation({ summary: 'Actualizar producto' })
-  update(@Req() req, @Param('id') id: string, @Body() dto: Partial<CreateProductDto>) {
-    return this.svc.update(id, dto, req.user.empresaId, req.user.sub)
+  update(@Req() req, @Param('id') id: string, @Body() dto: UpdateProductDto) {
+    return this.svc.update(id, dto, req.user.empresaId, req.user.cuentaId)
   }
 
   @Patch(':id/estado')
   @ApiOperation({ summary: 'Cambiar estado del producto' })
   changeStatus(@Req() req, @Param('id') id: string, @Body() dto: ChangeProductStatusDto) {
-    return this.svc.changeStatus(id, dto, req.user.empresaId, req.user.sub)
+    return this.svc.changeStatus(id, dto, req.user.empresaId, req.user.cuentaId)
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Eliminación lógica' })
   remove(@Req() req, @Param('id') id: string) {
-    return this.svc.softDelete(id, req.user.empresaId, req.user.sub)
+    return this.svc.softDelete(id, req.user.empresaId, req.user.cuentaId)
   }
 }

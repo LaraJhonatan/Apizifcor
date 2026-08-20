@@ -5,7 +5,9 @@ import { Category } from './entities/category.entity';
 import { CategoryAttributeDefinition } from './entities/category-attribute-definition.entity';
 import { CategoryAttributeOption } from './entities/category-attribute-option.entity';
 import { CreateCategoryDto } from './dto/create-category.dto';
+import { UpdateCategoryDto } from './dto/update-category.dto';
 import { CreateAttributeDefinitionDto } from './dto/create-attribute-definition.dto';
+import { UpdateAttributeDefinitionDto } from './dto/update-attribute-definition.dto';
 import { CreateAttributeOptionDto } from './dto/create-attribute-option.dto';
 
 @Injectable()
@@ -49,7 +51,7 @@ async getTree() {
     });
   }
 
-  async updateCategory(id: string, dto: Partial<CreateCategoryDto>): Promise<Category> {
+  async updateCategory(id: string, dto: UpdateCategoryDto): Promise<Category> {
     await this.categoryRepo.update(id, dto);
     return this.getById(id);
   }
@@ -63,7 +65,7 @@ async getTree() {
     return this.atributoRepo.save(atributo);
   }
 
-  async updateAtributo(id: string, dto: Partial<CreateAttributeDefinitionDto>): Promise<CategoryAttributeDefinition> {
+  async updateAtributo(id: string, dto: UpdateAttributeDefinitionDto): Promise<CategoryAttributeDefinition> {
     await this.atributoRepo.update(id, dto);
     return this.atributoRepo.findOne({ where: { id }, relations: ['opciones'] });
   }

@@ -1,14 +1,19 @@
 import {
   Controller, Get, Post, Patch, Param,
-  Body, Delete, HttpCode, HttpStatus,
+  Body, Delete, HttpCode, HttpStatus, UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
+import { UpdateCategoryDto } from './dto/update-category.dto';
 import { CreateAttributeDefinitionDto } from './dto/create-attribute-definition.dto';
+import { UpdateAttributeDefinitionDto } from './dto/update-attribute-definition.dto';
 import { CreateAttributeOptionDto } from './dto/create-attribute-option.dto';
 
 @ApiTags('Categorías')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('categories')
 export class CategoriesController {
   constructor(private readonly svc: CategoriesService) {}
@@ -39,7 +44,7 @@ export class CategoriesController {
 
   @Patch(':id')
   @ApiOperation({ summary: 'Actualizar categoría' })
-  update(@Param('id') id: string, @Body() dto: Partial<CreateCategoryDto>) {
+  update(@Param('id') id: string, @Body() dto: UpdateCategoryDto) {
     return this.svc.updateCategory(id, dto);
   }
 
@@ -58,7 +63,7 @@ export class CategoriesController {
 
   @Patch('atributos/:id')
   @ApiOperation({ summary: 'Actualizar definición de atributo' })
-  updateAtributo(@Param('id') id: string, @Body() dto: Partial<CreateAttributeDefinitionDto>) {
+  updateAtributo(@Param('id') id: string, @Body() dto: UpdateAttributeDefinitionDto) {
     return this.svc.updateAtributo(id, dto);
   }
 
