@@ -7,6 +7,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { ProductsModule } from './products/products.module';
+import { ProductImportModule } from './product-import/product-import.module';
 import { CategoriesModule } from './categories/categories.module';
 import { CartModule } from './cart/cart.module';
 import { OrdersModule } from './orders/orders.module';
@@ -109,6 +110,7 @@ import { ClickEventEntity } from './analytics/entities/click-event.entity';
     UsersModule,
     UploadsModule,
     ProductsModule,
+    ProductImportModule,
     CategoriesModule,
     CartModule,
     OrdersModule,
