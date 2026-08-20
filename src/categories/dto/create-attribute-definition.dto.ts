@@ -1,8 +1,9 @@
-import { IsString, IsBoolean, IsOptional, IsEnum, IsNumber, IsUUID } from 'class-validator';
+import { IsString, IsBoolean, IsOptional, IsEnum, IsNumber, IsNotEmpty } from 'class-validator';
 import { AttributeType } from '../../common/enums/attribute-type.enum';
 
 export class CreateAttributeDefinitionDto {
-  @IsUUID()
+  @IsString()
+  @IsNotEmpty()
   categoryId: string;
 
   @IsString()
