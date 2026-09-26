@@ -2,7 +2,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
 
-const MODO_PRUEBAS = true;
+const MODO_PRUEBAS = false;
 const CORREO_PRUEBAS = 'larajhonatanv@gmail.com';
 
 @Injectable()
