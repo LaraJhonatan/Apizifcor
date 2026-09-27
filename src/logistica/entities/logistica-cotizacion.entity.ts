@@ -130,6 +130,13 @@ export class LogisticaCotizacion {
   @Column({ length: 100 })
   compradorCiudad: string;
 
+  // ── Cuenta que la generó (si había sesión), para listarla en "Tus cotizaciones" ──
+  @Column({ type: 'int', nullable: true })
+  usuarioId: number;
+
+  @Column({ type: 'uniqueidentifier', nullable: true })
+  empresaId: string;
+
   @CreateDateColumn()
   createdAt: Date;
 }

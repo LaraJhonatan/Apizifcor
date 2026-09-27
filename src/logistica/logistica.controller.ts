@@ -5,9 +5,12 @@ import {
 import type { Response as ExpressResponse } from 'express';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { LogisticaService } from './logistica.service';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
+import { LogisticaService, CuentaLogistica } from './logistica.service';
 import { ParseGuidPipe } from './guid';
-import { CotizarDto, ConfirmarCotizacionDto, VerificarPagoDto } from './dto/cotizar.dto';
+import {
+  CotizarDto, ConfirmarCotizacionDto, VerificarPagoDto, ResumenCotizacionesDto, BuscarCotizacionDto,
+} from './dto/cotizar.dto';
 import {
   CreateVehiculoDto, UpdateVehiculoDto, CreateRutaDto, UpdateRutaDto,
   CreateServicioDto, UpdateServicioDto, GuardarTarifasDto, GuardarImagenesDto,
@@ -36,31 +39,76 @@ export class LogisticaController {
     return this.svc.cotizar(dto);
   }
 
+  /** No exige sesión; si el cliente la tiene, la cotización queda asociada a su cuenta. */
   @Post('cotizaciones')
-  confirmar(@Body() dto: ConfirmarCotizacionDto) {
-    return this.svc.confirmar(dto);
+  @UseGuards(OptionalJwtAuthGuard)
+  confirmar(@Request() req: any, @Body() dto: ConfirmarCotizacionDto) {
+    return this.svc.confirmar(dto, this.cuenta(req));
+  }
+
+  // Las rutas de una cotización no exigen sesión (las hechas sin cuenta se abren con su enlace),
+  // pero si la cotización tiene dueño, el servicio exige que la sesión sea la de esa cuenta.
+
+  @Post('cotizaciones/resumen')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(OptionalJwtAuthGuard)
+  resumen(@Request() req: any, @Body() dto: ResumenCotizacionesDto) {
+    return this.svc.resumenPorTokens(dto.tokens, this.cuenta(req));
+  }
+
+  @Post('cotizaciones/buscar')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(OptionalJwtAuthGuard)
+  buscar(@Request() req: any, @Body() dto: BuscarCotizacionDto) {
+    return this.svc.buscar(dto.numero, dto.email, this.cuenta(req));
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Get('mis-cotizaciones')
+  misCotizaciones(@Request() req: any) {
+    return this.svc.misCotizaciones(this.cuenta(req));
+  }
+
+  private cuenta(req: any): CuentaLogistica {
+    const user = req.user;
+    if (user?.tipo === 'empresa' && user.empresaId) return { empresaId: user.empresaId };
+    if (user?.tipo === 'usuario' && user.usuarioId) return { usuarioId: Number(user.usuarioId) };
+    return {};
   }
 
   @Get('cotizaciones/:token')
-  obtener(@Param('token', ParseUUIDPipe) token: string) {
-    return this.svc.obtenerPorToken(token);
+  @UseGuards(OptionalJwtAuthGuard)
+  obtener(@Request() req: any, @Param('token', ParseUUIDPipe) token: string) {
+    return this.svc.obtenerPorToken(token, this.cuenta(req));
   }
 
   @Post('cotizaciones/:token/pago')
   @HttpCode(HttpStatus.OK)
-  iniciarPago(@Param('token', ParseUUIDPipe) token: string) {
-    return this.svc.iniciarPago(token);
+  @UseGuards(OptionalJwtAuthGuard)
+  iniciarPago(@Request() req: any, @Param('token', ParseUUIDPipe) token: string) {
+    return this.svc.iniciarPago(token, this.cuenta(req));
   }
 
   @Post('cotizaciones/:token/verificar-pago')
   @HttpCode(HttpStatus.OK)
-  verificarPago(@Param('token', ParseUUIDPipe) token: string, @Body() dto: VerificarPagoDto) {
-    return this.svc.verificarPago(token, dto.transactionId);
+  @UseGuards(OptionalJwtAuthGuard)
+  verificarPago(
+    @Request() req: any,
+    @Param('token', ParseUUIDPipe) token: string,
+    @Body() dto: VerificarPagoDto,
+  ) {
+    return this.svc.verificarPago(token, dto.transactionId, this.cuenta(req));
   }
 
   @Get('cotizaciones/:token/pdf')
-  async pdf(@Param('token', ParseUUIDPipe) token: string, @Response() res: ExpressResponse) {
-    const { buffer, numero } = await this.svc.pdf(token);
+  @UseGuards(OptionalJwtAuthGuard)
+  async pdf(
+    @Request() req: any,
+    @Param('token', ParseUUIDPipe) token: string,
+    @Response() res: ExpressResponse,
+  ) {
+    const { buffer, numero } = await this.svc.pdf(token, this.cuenta(req));
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${numero}.pdf"`);
     res.send(buffer);

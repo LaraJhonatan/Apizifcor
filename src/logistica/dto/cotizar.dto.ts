@@ -1,7 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   IsString, IsNotEmpty, IsOptional, MaxLength, IsNumber, IsPositive, IsInt, Min,
-  IsArray, IsEmail, IsIn, ValidateNested, Matches, IsDefined, IsBoolean,
+  IsArray, IsEmail, IsIn, ValidateNested, Matches, IsDefined, IsBoolean, ArrayMaxSize,
 } from 'class-validator';
 import { GUID_RE } from '../guid';
 
@@ -122,4 +122,24 @@ export class VerificarPagoDto {
   @IsNotEmpty()
   @MaxLength(100)
   transactionId: string;
+}
+
+/** Cotizaciones que el navegador del cliente recuerda (localStorage). */
+export class ResumenCotizacionesDto {
+  @IsArray()
+  @ArrayMaxSize(20)
+  @Matches(GUID_RE, { each: true, message: 'Enlace de cotización no válido.' })
+  tokens: string[];
+}
+
+/** Recuperar una cotización desde otro dispositivo con su número y el correo del comprador. */
+export class BuscarCotizacionDto {
+  @IsString()
+  @IsNotEmpty({ message: 'Ingresa el número de la cotización.' })
+  @MaxLength(20)
+  numero: string;
+
+  @IsEmail({}, { message: 'Ingresa un correo válido.' })
+  @MaxLength(200)
+  email: string;
 }

@@ -13,6 +13,7 @@ import { Order } from '../orders/entities/order.entity';
 import { OrderItem } from '../orders/entities/order-item.entity';
 import { WompiModule } from '../wompi/wompi.module';
 import { OrdersModule } from '../orders/orders.module';
+import { MailService } from '../auth/services/mail.service';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { OrdersModule } from '../orders/orders.module';
     OrdersModule,
   ],
   controllers: [LogisticaController],
-  providers: [LogisticaService],
+  // MailService solo depende de ConfigService (global); se provee aquí para enviar el enlace de la cotización.
+  providers: [LogisticaService, MailService],
 })
 export class LogisticaModule {}

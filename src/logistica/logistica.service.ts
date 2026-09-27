@@ -18,6 +18,16 @@ import { OrderOrigin } from '../common/enums/order-origin.enum';
 import { OrderStatus } from '../common/enums/order-status.enum';
 import { WompiService } from '../wompi/wompi.service';
 import { OrdersService } from '../orders/orders.service';
+import { MailService } from '../auth/services/mail.service';
+
+/** Cuenta con sesión iniciada al cotizar (usuario comprador o empresa). */
+export interface CuentaLogistica {
+  usuarioId?: number | null;
+  empresaId?: string | null;
+}
+
+/** 'ver' permite también a las empresas editoras de logística; 'pagar' solo al dueño. */
+type UsoCotizacion = 'ver' | 'pagar';
 import { buildComprobantePdf } from '../orders/comprobante.pdf';
 import { CotizarDto, ConfirmarCotizacionDto } from './dto/cotizar.dto';
 import {
@@ -81,6 +91,7 @@ export class LogisticaService implements OnModuleInit {
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly wompi: WompiService,
     private readonly ordersService: OrdersService,
+    private readonly mail: MailService,
     private readonly config: ConfigService,
   ) {}
 
@@ -222,7 +233,7 @@ export class LogisticaService implements OnModuleInit {
     };
   }
 
-  async confirmar(dto: ConfirmarCotizacionDto) {
+  async confirmar(dto: ConfirmarCotizacionDto, cuenta: CuentaLogistica = {}) {
     const calc = await this.calcular(dto);
     if (calc.ok === false) throw new BadRequestException(calc.mensaje);
 
@@ -314,11 +325,15 @@ export class LogisticaService implements OnModuleInit {
           compradorTelefono: c.telefono.trim(),
           compradorDireccion: c.direccion.trim(),
           compradorCiudad: c.ciudad.trim(),
+          usuarioId: cuenta.usuarioId ?? null,
+          empresaId: cuenta.empresaId ?? null,
         }),
       );
 
       return { order, cotizacion };
     });
+
+    this.enviarCorreoCotizacion(cotizacion);
 
     return {
       token: cotizacion.token,
@@ -327,14 +342,86 @@ export class LogisticaService implements OnModuleInit {
     };
   }
 
-  async obtenerPorToken(token: string) {
-    const { cotizacion, order } = await this.cargarPorToken(token);
-    return this.cotizacionPublica(cotizacion, order);
+  /** Correo con el enlace para volver a la cotización. Si falla, la cotización sigue siendo válida. */
+  private enviarCorreoCotizacion(c: LogisticaCotizacion) {
+    const fecha = (d: Date) =>
+      new Date(d).toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'America/Bogota' });
+    this.mail
+      .enviarCotizacionLogistica(c.compradorEmail, {
+        nombre: c.compradorNombre,
+        numero: this.numero(c.id),
+        ruta: `${c.origen} → ${c.destino} · ${c.vehiculoNombre}`,
+        total: `$${Number(c.total).toLocaleString('es-CO', { maximumFractionDigits: 0 })} ${c.moneda}`,
+        vigencia: fecha(c.vigenteHasta),
+        enlace: this.enlaceCotizacion(c.token),
+      })
+      .catch((err) => this.logger.warn(`No se pudo enviar el correo de la cotización ${c.id}: ${err?.message || err}`));
+  }
+
+  private enlaceCotizacion(token: string) {
+    return `${this.config.get('FRONTEND_URL')}/tienda/logistica/cotizacion/${token}`;
+  }
+
+  /** Cotizaciones generadas con la sesión de esta cuenta, más recientes primero. */
+  async misCotizaciones(cuenta: CuentaLogistica) {
+    const where = cuenta.empresaId
+      ? { empresaId: cuenta.empresaId }
+      : cuenta.usuarioId
+        ? { usuarioId: cuenta.usuarioId }
+        : null;
+    if (!where) return [];
+    const cotizaciones = await this.cotizacionRepo.find({ where, order: { id: 'DESC' }, take: 50 });
+    return this.resumenes(cotizaciones);
+  }
+
+  /** Resumen de las cotizaciones que el navegador del cliente tiene guardadas. */
+  async resumenPorTokens(tokens: string[], cuenta: CuentaLogistica = {}) {
+    const unicos = [...new Set(tokens)];
+    if (!unicos.length) return [];
+    const cotizaciones = await this.cotizacionRepo.find({ where: { token: In(unicos) }, order: { id: 'DESC' } });
+    // Las que pertenecen a otra cuenta no se listan aunque el navegador tenga el enlace.
+    return this.resumenes(cotizaciones.filter((c) => this.esDueno(c, cuenta)));
+  }
+
+  /** Recupera el enlace de una cotización con su número y el correo con que se generó. */
+  async buscar(numero: string, email: string, cuenta: CuentaLogistica = {}) {
+    const id = Number(String(numero).replace(/\D/g, ''));
+    const noEncontrada = new NotFoundException('No encontramos una cotización con ese número y correo.');
+    if (!Number.isInteger(id) || id <= 0) throw noEncontrada;
+    const c = await this.cotizacionRepo.findOne({ where: { id } });
+    if (!c || c.compradorEmail.trim().toLowerCase() !== email.trim().toLowerCase()) throw noEncontrada;
+    if (this.tieneDueno(c)) await this.assertAcceso(c, cuenta, 'pagar');
+    return { token: c.token, numero: this.numero(c.id) };
+  }
+
+  private async resumenes(cotizaciones: LogisticaCotizacion[]) {
+    const orderIds = cotizaciones.map((c) => c.orderId).filter(Boolean);
+    const orders = orderIds.length ? await this.orderRepo.find({ where: { id: In(orderIds) } }) : [];
+    const porId = new Map(orders.map((o) => [o.id.toUpperCase(), o]));
+    return cotizaciones.map((c) => ({
+      token: c.token,
+      numero: this.numero(c.id),
+      createdAt: c.createdAt,
+      vigenteHasta: c.vigenteHasta,
+      vencida: new Date(c.vigenteHasta) < new Date(),
+      origen: c.origen,
+      destino: c.destino,
+      producto: c.producto,
+      vehiculo: c.vehiculoNombre,
+      total: num(c.total),
+      moneda: c.moneda,
+      estadoPago: (c.orderId && porId.get(c.orderId.toUpperCase())?.estado) || OrderStatus.PENDING,
+    }));
+  }
+
+  async obtenerPorToken(token: string, cuenta: CuentaLogistica = {}) {
+    const { cotizacion, order } = await this.cargarPorToken(token, cuenta, 'ver');
+    return { ...this.cotizacionPublica(cotizacion, order), esDueno: this.esDueno(cotizacion, cuenta) };
   }
 
   /** Parámetros del widget de Wompi para pagar (o reintentar) una cotización pendiente. */
-  async iniciarPago(token: string) {
-    const { cotizacion, order } = await this.cargarPorToken(token);
+  async iniciarPago(token: string, cuenta: CuentaLogistica = {}) {
+    const { cotizacion, order } = await this.cargarPorToken(token, cuenta, 'pagar');
     if (order.estado === OrderStatus.APPROVED) {
       throw new BadRequestException('Esta cotización ya está pagada.');
     }
@@ -349,8 +436,8 @@ export class LogisticaService implements OnModuleInit {
    * Complementa el webhook: sirve cuando el cliente vuelve del pago antes de que llegue
    * el evento (o en local, donde Wompi no puede llamar al webhook).
    */
-  async verificarPago(token: string, transactionId: string) {
-    const { order } = await this.cargarPorToken(token);
+  async verificarPago(token: string, transactionId: string, cuenta: CuentaLogistica = {}) {
+    const { order } = await this.cargarPorToken(token, cuenta, 'pagar');
 
     if (order.estado !== OrderStatus.APPROVED) {
       const base = this.wompi.environment.startsWith('prod')
@@ -373,11 +460,11 @@ export class LogisticaService implements OnModuleInit {
       await this.ordersService.handleWompiEvent({ data: { transaction: tx } });
     }
 
-    return this.obtenerPorToken(token);
+    return this.obtenerPorToken(token, cuenta);
   }
 
-  async pdf(token: string): Promise<{ buffer: Buffer; numero: string }> {
-    const { cotizacion } = await this.cargarPorToken(token);
+  async pdf(token: string, cuenta: CuentaLogistica = {}): Promise<{ buffer: Buffer; numero: string }> {
+    const { cotizacion } = await this.cargarPorToken(token, cuenta, 'ver');
     const order = await this.orderRepo.findOne({ where: { id: cotizacion.orderId }, relations: ['items'] });
     if (!order) throw new NotFoundException('Cotización no encontrada.');
 
@@ -767,12 +854,45 @@ export class LogisticaService implements OnModuleInit {
     return `COT-${String(id).padStart(6, '0')}`;
   }
 
-  private async cargarPorToken(token: string) {
+  /**
+   * Carga la cotización y valida que quien la pide pueda usarla:
+   *  - Generada con sesión → solo esa cuenta (usuario o empresa). Las editoras de logística pueden verla, no pagarla.
+   *  - Generada sin sesión → no tiene dueño; el enlace secreto (token) es la única credencial.
+   */
+  private async cargarPorToken(token: string, cuenta: CuentaLogistica, uso: UsoCotizacion) {
     const cotizacion = await this.cotizacionRepo.findOne({ where: { token } });
     if (!cotizacion) throw new NotFoundException('Cotización no encontrada.');
+    await this.assertAcceso(cotizacion, cuenta, uso);
     const order = await this.orderRepo.findOne({ where: { id: cotizacion.orderId } });
     if (!order) throw new NotFoundException('Cotización no encontrada.');
     return { cotizacion, order };
+  }
+
+  private tieneDueno(c: LogisticaCotizacion) {
+    return !!c.empresaId || c.usuarioId != null;
+  }
+
+  private esDueno(c: LogisticaCotizacion, cuenta: CuentaLogistica): boolean {
+    if (c.empresaId) return !!cuenta.empresaId && c.empresaId.toUpperCase() === cuenta.empresaId.toUpperCase();
+    if (c.usuarioId != null) return cuenta.usuarioId != null && Number(c.usuarioId) === Number(cuenta.usuarioId);
+    return true;
+  }
+
+  private async assertAcceso(c: LogisticaCotizacion, cuenta: CuentaLogistica, uso: UsoCotizacion) {
+    if (this.esDueno(c, cuenta)) return;
+    if (uso === 'ver' && cuenta.empresaId && (await this.esEditor(cuenta.empresaId))) return;
+
+    const sinSesion = !cuenta.empresaId && cuenta.usuarioId == null;
+    throw new ForbiddenException({
+      statusCode: 403,
+      error: 'Forbidden',
+      code: sinSesion ? 'REQUIERE_SESION' : 'OTRA_CUENTA',
+      message: sinSesion
+        ? 'Esta cotización está asociada a una cuenta. Inicia sesión con esa cuenta para verla y pagarla.'
+        : uso === 'pagar'
+          ? 'Solo la cuenta que generó esta cotización puede pagarla.'
+          : 'Esta cotización pertenece a otra cuenta. Inicia sesión con la cuenta que la generó.',
+    });
   }
 
   private datosPago(order: Order, token: string) {
