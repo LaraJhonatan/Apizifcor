@@ -21,6 +21,7 @@ import { SitemapModule } from './sitemap/sitemap.module';
 import { DestacadosModule } from './destacados/destacados.module';
 import { QuoteRequestsModule } from './quote-requests/quote-requests.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { LogisticaModule } from './logistica/logistica.module';
 
 import { EmpresaEntity } from './auth/entities/empresa.entity';
 import { CuentaEmpresaEntity } from './auth/entities/cuenta-empresa.entity';
@@ -55,6 +56,13 @@ import { SeccionDestacadoEntity } from './destacados/entities/seccion-destacado.
 import { QuoteRequest } from './quote-requests/entities/quote-request.entity';
 import { QuoteRequestFile } from './quote-requests/entities/quote-request-file.entity';
 import { ClickEventEntity } from './analytics/entities/click-event.entity';
+import { LogisticaVehiculo } from './logistica/entities/logistica-vehiculo.entity';
+import { LogisticaRuta } from './logistica/entities/logistica-ruta.entity';
+import { LogisticaTarifa } from './logistica/entities/logistica-tarifa.entity';
+import { LogisticaServicio } from './logistica/entities/logistica-servicio.entity';
+import { LogisticaEditor } from './logistica/entities/logistica-editor.entity';
+import { LogisticaCotizacion } from './logistica/entities/logistica-cotizacion.entity';
+import { LogisticaAjuste } from './logistica/entities/logistica-ajuste.entity';
 
 @Module({
   imports: [
@@ -97,6 +105,13 @@ import { ClickEventEntity } from './analytics/entities/click-event.entity';
         QuoteRequest,
         QuoteRequestFile,
         ClickEventEntity,
+        LogisticaVehiculo,
+        LogisticaRuta,
+        LogisticaTarifa,
+        LogisticaServicio,
+        LogisticaEditor,
+        LogisticaCotizacion,
+        LogisticaAjuste,
       ],
       synchronize: true,
       logging: true,
@@ -123,6 +138,7 @@ import { ClickEventEntity } from './analytics/entities/click-event.entity';
     DestacadosModule,
     QuoteRequestsModule,
     AnalyticsModule,
+    LogisticaModule,
   ],
   controllers: [AppController],
   providers: [AppService],

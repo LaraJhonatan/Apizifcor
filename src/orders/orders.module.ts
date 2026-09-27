@@ -17,5 +17,6 @@ import { WompiModule } from '../wompi/wompi.module';
   ],
   controllers: [OrdersController],
   providers: [OrdersService],
+  exports: [OrdersService],
 })
 export class OrdersModule {}

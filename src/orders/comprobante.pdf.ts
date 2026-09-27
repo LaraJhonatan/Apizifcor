@@ -34,8 +34,21 @@ interface CompradorInfo {
   documento: string | null;
 }
 
+export interface ComprobanteOpciones {
+  /** Número visible del documento (ej. "COT-000012"); por defecto se usa el id de la orden. */
+  numero?: string;
+  /** Bloques extra de "etiqueta: valor" que se pintan antes de la tabla (ej. detalle del envío). */
+  secciones?: { titulo: string; filas: [string, string][] }[];
+  /** Texto adicional al pie (ej. vigencia de la cotización). */
+  notaPie?: string;
+}
+
 /** Genera un comprobante de compra en PDF (no es una factura electrónica DIAN). */
-export function buildComprobantePdf(order: Order, comprador: CompradorInfo): Promise<Buffer> {
+export function buildComprobantePdf(
+  order: Order,
+  comprador: CompradorInfo,
+  opciones: ComprobanteOpciones = {},
+): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: 'A4', margin: MARGIN });
     const chunks: Buffer[] = [];
@@ -43,7 +56,7 @@ export function buildComprobantePdf(order: Order, comprador: CompradorInfo): Pro
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
-    const referencia = order.id.slice(0, 8).toUpperCase();
+    const referencia = opciones.numero || order.id.slice(0, 8).toUpperCase();
     const pagado = order.estado === 'approved';
 
     // ── Encabezado de marca ──
@@ -102,29 +115,41 @@ export function buildComprobantePdf(order: Order, comprador: CompradorInfo): Pro
     if (order.envioDireccion) doc.text(`Dirección de entrega: ${order.envioDireccion}, ${order.envioCiudad || ''} ${order.envioDepartamento || ''}`);
     doc.moveDown(1.2);
 
+    for (const seccion of opciones.secciones || []) {
+      doc.font('Helvetica-Bold').fontSize(11).fillColor(BRAND).text(seccion.titulo, MARGIN, doc.y);
+      doc.fontSize(10).fillColor('#333');
+      for (const [etiqueta, valor] of seccion.filas) {
+        doc.font('Helvetica-Bold').text(`${etiqueta}: `, MARGIN, doc.y, { continued: true, width: CONTENT_WIDTH })
+          .font('Helvetica').text(valor);
+      }
+      doc.moveDown(1);
+    }
+
     // ── Tabla de productos ──
-    const col = { nombre: MARGIN, cant: 330, precio: 390, subtotal: 470 };
+    // Precio y subtotal con ancho suficiente para montos de millones ("$12.345.678 COP") en una línea.
+    const col = { nombre: MARGIN, cant: 290, precio: 335, subtotal: 440 };
     const tableTop = doc.y;
     doc.rect(MARGIN, tableTop - 4, CONTENT_WIDTH, 22).fill(BRAND_LIGHT);
     doc.fillColor(BRAND).font('Helvetica-Bold').fontSize(9.5);
-    doc.text('Producto / servicio', col.nombre + 6, tableTop, { width: 264 });
-    doc.text('Cant.', col.cant, tableTop, { width: 50, align: 'right' });
-    doc.text('Precio', col.precio, tableTop, { width: 70, align: 'right' });
-    doc.text('Subtotal', col.subtotal, tableTop, { width: 75, align: 'right' });
+    doc.text('Producto / servicio', col.nombre + 6, tableTop, { width: 230 });
+    doc.text('Cant.', col.cant, tableTop, { width: 40, align: 'right' });
+    doc.text('Precio', col.precio, tableTop, { width: 100, align: 'right' });
+    doc.text('Subtotal', col.subtotal, tableTop, { width: 105, align: 'right' });
     doc.y = tableTop + 22;
 
     doc.font('Helvetica').fontSize(9.5).fillColor('#333');
     let zebra = false;
     for (const item of order.items || []) {
       const rowY = doc.y;
-      const rowH = 20;
+      const nombreH = doc.heightOfString(item.nombre, { width: 226 });
+      const rowH = Math.max(20, nombreH + 8);
       if (zebra) doc.rect(MARGIN, rowY - 3, CONTENT_WIDTH, rowH).fill('#F8FAFC');
       zebra = !zebra;
       doc.fillColor('#333');
-      doc.text(item.nombre, col.nombre + 6, rowY, { width: 258 });
-      doc.text(String(item.cantidad), col.cant, rowY, { width: 50, align: 'right' });
-      doc.text(formatMoney(Number(item.precioUnitario), order.moneda), col.precio, rowY, { width: 70, align: 'right' });
-      doc.text(formatMoney(Number(item.subtotal), order.moneda), col.subtotal, rowY, { width: 75, align: 'right' });
+      doc.text(item.nombre, col.nombre + 6, rowY, { width: 226 });
+      doc.text(String(item.cantidad), col.cant, rowY, { width: 40, align: 'right' });
+      doc.text(formatMoney(Number(item.precioUnitario), order.moneda), col.precio, rowY, { width: 100, align: 'right' });
+      doc.text(formatMoney(Number(item.subtotal), order.moneda), col.subtotal, rowY, { width: 105, align: 'right' });
       doc.y = rowY + rowH;
     }
 
@@ -145,6 +170,12 @@ export function buildComprobantePdf(order: Order, comprador: CompradorInfo): Pro
       });
 
     doc.y = totalBoxY + totalBoxH + 30;
+    if (opciones.notaPie) {
+      doc.font('Helvetica').fontSize(9).fillColor('#333').text(opciones.notaPie, MARGIN, doc.y, {
+        width: CONTENT_WIDTH, align: 'center',
+      });
+      doc.moveDown(0.8);
+    }
     doc.font('Helvetica').fontSize(8).fillColor(TEXT_GRAY).text(
       'Generado automáticamente por ZIFCOR — plataforma de comercio industrial B2B.',
       MARGIN, doc.y, { width: CONTENT_WIDTH, align: 'center' },
