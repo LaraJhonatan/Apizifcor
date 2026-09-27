@@ -32,7 +32,7 @@ export const SEED_RUTAS: {
   { destino: 'Barranquilla', tipo: 'nacional', entregasIncluidas: 1, tarifas: [null, 3_600_000, 3_600_000, 3_800_000, 4_000_000, 4_300_000, 6_325_000, 6_825_000] },
   { destino: 'Cartagena', tipo: 'nacional', entregasIncluidas: 1, tarifas: [null, 3_800_000, 3_800_000, 4_000_000, 4_200_000, 4_450_000, 5_973_000, 6_473_000] },
   { destino: 'Santa Marta', tipo: 'nacional', entregasIncluidas: 1, tarifas: [null, 3_900_000, 3_900_000, 4_100_000, 4_300_000, 4_500_000, 5_370_000, 5_870_000] },
-  { destino: 'Bogotá (urbano)', tipo: 'urbano', entregasIncluidas: 5, tarifas: [250_000, 350_000, 400_000, 500_000, 550_000, 650_000, 727_000, 827_000] },
+  { destino: 'Bogotá', tipo: 'urbano', entregasIncluidas: 5, tarifas: [250_000, 350_000, 400_000, 500_000, 550_000, 650_000, 727_000, 827_000] },
   { destino: 'Medellín', tipo: 'nacional', entregasIncluidas: 1, tarifas: [null, 1_900_000, 2_000_000, 2_100_000, 2_300_000, 2_500_000, 3_187_000, 3_687_000] },
   { destino: 'Cali', tipo: 'nacional', entregasIncluidas: 1, tarifas: [null, 2_000_000, 2_100_000, 2_300_000, 2_400_000, 2_550_000, 3_328_000, 3_828_000] },
   { destino: 'Pereira', tipo: 'nacional', entregasIncluidas: 1, tarifas: [null, 1_900_000, 2_000_000, 2_100_000, 2_300_000, 2_500_000, 2_556_000, 3_056_000] },

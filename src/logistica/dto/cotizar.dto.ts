@@ -1,7 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   IsString, IsNotEmpty, IsOptional, MaxLength, IsNumber, IsPositive, IsInt, Min,
-  IsArray, IsEmail, IsIn, ValidateNested, Matches, IsDefined,
+  IsArray, IsEmail, IsIn, ValidateNested, Matches, IsDefined, IsBoolean,
 } from 'class-validator';
 import { GUID_RE } from '../guid';
 
@@ -14,6 +14,11 @@ export class CotizarDto {
   @IsNotEmpty({ message: 'Selecciona el destino.' })
   @Matches(GUID_RE, { message: 'El destino seleccionado no está disponible.' })
   rutaId: string;
+
+  /** Las rutas sirven en ambos sentidos con el mismo precio: true = del destino de la ruta a su origen. */
+  @IsOptional()
+  @IsBoolean()
+  invertida?: boolean;
 
   @IsString()
   @IsNotEmpty({ message: 'Indica qué producto vas a transportar.' })

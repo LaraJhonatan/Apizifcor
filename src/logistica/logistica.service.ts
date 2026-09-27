@@ -48,7 +48,8 @@ export interface ServicioElegido {
   precio: number;
 }
 
-type Calculo =
+/** origen/destino van en el sentido que eligió el cliente (una ruta sirve en ambos sentidos). */
+type Calculo = { origen: string; destino: string } & (
   | {
       ok: true;
       ruta: LogisticaRuta;
@@ -61,7 +62,8 @@ type Calculo =
       totalServicios: number;
       total: number;
     }
-  | { ok: false; ruta: LogisticaRuta; volumenM3: number; mensaje: string; detalle: string; sugerencia: string };
+  | { ok: false; ruta: LogisticaRuta; volumenM3: number; mensaje: string; detalle: string; sugerencia: string }
+);
 
 @Injectable()
 export class LogisticaService implements OnModuleInit {
@@ -202,7 +204,7 @@ export class LogisticaService implements OnModuleInit {
   async cotizar(dto: CotizarDto) {
     const calc = await this.calcular(dto);
     const base = {
-      ruta: { id: calc.ruta.id, origen: calc.ruta.origen, destino: calc.ruta.destino, tipo: calc.ruta.tipo },
+      ruta: { id: calc.ruta.id, origen: calc.origen, destino: calc.destino, tipo: calc.ruta.tipo },
       volumenM3: calc.volumenM3,
       moneda: 'COP',
     };
@@ -241,7 +243,7 @@ export class LogisticaService implements OnModuleInit {
           compradorEmail: c.email.trim(),
           compradorTelefono: c.telefono.trim(),
           envioDireccion: dto.puntoEntrega?.trim() || null,
-          envioCiudad: calc.ruta.destino,
+          envioCiudad: calc.destino,
           envioNotas: dto.comentarios?.trim() || null,
         }),
       );
@@ -254,7 +256,7 @@ export class LogisticaService implements OnModuleInit {
           orderId: order.id,
           productId: null,
           // Sin "→": la fuente estándar del PDF (Helvetica) no tiene ese carácter.
-          nombre: `Transporte de ${calc.ruta.origen} a ${calc.ruta.destino} · ${calc.vehiculo.nombre} (${calc.vehiculo.codigo})`,
+          nombre: `Transporte de ${calc.origen} a ${calc.destino} · ${calc.vehiculo.nombre} (${calc.vehiculo.codigo})`,
           precioUnitario: calc.valorTransporte,
           cantidad: 1,
           subtotal: calc.valorTransporte,
@@ -280,8 +282,8 @@ export class LogisticaService implements OnModuleInit {
           token,
           orderId: order.id,
           rutaId: calc.ruta.id,
-          origen: calc.ruta.origen,
-          destino: calc.ruta.destino,
+          origen: calc.origen,
+          destino: calc.destino,
           puntoRecogida: dto.puntoRecogida?.trim() || null,
           puntoEntrega: dto.puntoEntrega?.trim() || null,
           producto: dto.producto.trim(),
@@ -466,14 +468,52 @@ export class LogisticaService implements OnModuleInit {
   }
 
   async crearRuta(dto: CreateRutaDto) {
-    return this.rutaRepo.save(this.rutaRepo.create(dto));
+    const datos = { ...dto, origen: dto.origen.trim(), destino: dto.destino.trim() };
+    await this.validarRuta(datos.origen, datos.destino, datos.tipo ?? 'nacional');
+    if (datos.orden == null) {
+      // Sin orden explícito, la ruta nueva va al final de la lista.
+      const ultima = await this.rutaRepo.findOne({ where: {}, order: { orden: 'DESC' } });
+      datos.orden = (ultima?.orden ?? 0) + 1;
+    }
+    return this.rutaRepo.save(this.rutaRepo.create(datos));
   }
 
   async actualizarRuta(id: string, dto: UpdateRutaDto) {
     const r = await this.rutaRepo.findOne({ where: { id } });
     if (!r) throw new NotFoundException('Ruta no encontrada.');
-    Object.assign(r, dto);
+    Object.assign(r, dto, {
+      ...(dto.origen != null && { origen: dto.origen.trim() }),
+      ...(dto.destino != null && { destino: dto.destino.trim() }),
+    });
+    await this.validarRuta(r.origen, r.destino, r.tipo, r.id);
     return this.rutaRepo.save(r);
+  }
+
+  /**
+   * Una ruta sirve en ambos sentidos con el mismo precio, así que A→B y B→A son la misma:
+   * no se permite repetirla (sin importar mayúsculas, tildes ni el orden de las ciudades).
+   * Origen = destino solo tiene sentido como servicio urbano dentro de la ciudad.
+   */
+  private async validarRuta(origen: string, destino: string, tipo: string, excluirId?: string) {
+    const clave = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+    const [a, b] = [clave(origen), clave(destino)];
+    if (a === b && tipo !== 'urbano') {
+      throw new BadRequestException('Si el origen y el destino son la misma ciudad, el tipo debe ser "Urbano".');
+    }
+    if (a !== b && tipo === 'urbano') {
+      throw new BadRequestException('Una ruta urbana es dentro de una misma ciudad: origen y destino deben ser iguales.');
+    }
+    const repetida = (await this.rutaRepo.find()).find((r) => {
+      if (excluirId && r.id.toUpperCase() === excluirId.toUpperCase()) return false;
+      const [x, y] = [clave(r.origen), clave(r.destino)];
+      return (x === a && y === b) || (x === b && y === a);
+    });
+    if (repetida) {
+      throw new BadRequestException(
+        `Ya existe la ruta ${repetida.origen} ↔ ${repetida.destino}${repetida.activo ? '' : ' (oculta)'}. ` +
+          'Las rutas sirven en ambos sentidos con el mismo precio; edita esa en lugar de crear otra.',
+      );
+    }
   }
 
   async guardarTarifas(items: TarifaItemDto[]) {
@@ -563,6 +603,7 @@ export class LogisticaService implements OnModuleInit {
   private async calcular(dto: CotizarDto): Promise<Calculo> {
     const ruta = await this.rutaRepo.findOne({ where: { id: dto.rutaId, activo: true } });
     if (!ruta) throw new BadRequestException('El destino seleccionado no está disponible.');
+    const [origen, destino] = dto.invertida ? [ruta.destino, ruta.origen] : [ruta.origen, ruta.destino];
 
     const volumenM3 = Math.round(dto.largoM * dto.anchoM * dto.altoM * dto.cantidad * 100) / 100;
 
@@ -578,7 +619,7 @@ export class LogisticaService implements OnModuleInit {
 
     if (dto.cantidad > MAX_UNIDADES) {
       return {
-        ok: false, ruta, volumenM3, mensaje: MENSAJE_EXCEDE,
+        ok: false, ruta, origen, destino, volumenM3, mensaje: MENSAJE_EXCEDE,
         detalle: `La carga tiene ${dto.cantidad.toLocaleString('es-CO')} unidades (más de ${MAX_UNIDADES.toLocaleString('es-CO')}).`,
         sugerencia: 'Para volúmenes así armamos un plan de transporte a la medida. Escríbenos por WhatsApp.',
       };
@@ -587,7 +628,7 @@ export class LogisticaService implements OnModuleInit {
     const aptos = disponibles.filter((c) => this.cabe(c.v, dto, volumenM3));
     if (!aptos.length) {
       return {
-        ok: false, ruta, volumenM3, mensaje: MENSAJE_EXCEDE,
+        ok: false, ruta, origen, destino, volumenM3, mensaje: MENSAJE_EXCEDE,
         ...this.motivoNoCabe(disponibles.map((c) => c.v), dto, volumenM3),
       };
     }
@@ -604,6 +645,8 @@ export class LogisticaService implements OnModuleInit {
     return {
       ok: true,
       ruta,
+      origen,
+      destino,
       vehiculo: elegido.v,
       volumenM3,
       valorBase: elegido.valorBase,
