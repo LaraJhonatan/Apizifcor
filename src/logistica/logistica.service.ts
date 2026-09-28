@@ -26,6 +26,9 @@ export interface CuentaLogistica {
   empresaId?: string | null;
 }
 
+/** Avisos que acompañan el precio (también en el front: Industria/src/utils/logisticaAvisos.js). */
+const AVISOS_COTIZACION = ['Sujeto a cambios.', 'Carga asegurada por valor de $1.300.000.000.'];
+
 /** 'ver' permite también a las empresas editoras de logística; 'pagar' solo al dueño. */
 type UsoCotizacion = 'ver' | 'pagar';
 import { buildComprobantePdf } from '../orders/comprobante.pdf';
@@ -501,11 +504,14 @@ export class LogisticaService implements OnModuleInit {
             ],
           },
         ],
-        notaPie: pagado
-          ? undefined
-          : `Cotización válida hasta el ${new Date(cotizacion.vigenteHasta).toLocaleDateString('es-CO', {
-              day: '2-digit', month: 'long', year: 'numeric',
-            })}.`,
+        notaPie: [
+          ...(pagado
+            ? []
+            : [`Cotización válida hasta el ${new Date(cotizacion.vigenteHasta).toLocaleDateString('es-CO', {
+                day: '2-digit', month: 'long', year: 'numeric',
+              })}.`]),
+          ...AVISOS_COTIZACION,
+        ].join('  ·  '),
       },
     );
 
